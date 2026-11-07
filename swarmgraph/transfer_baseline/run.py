@@ -1,4 +1,9 @@
-"""Prepare, calibrate and evaluate the scripted transfer baseline."""
+"""Prepare, monitor and report the Step 1 transfer baseline.
+
+    uv run python -m swarmgraph.transfer_baseline.run prepare            # 36 scripted episodes, no model calls
+    uv run python -m swarmgraph.transfer_baseline.run monitor --concurrency 8   # 540 judge calls
+    uv run python -m swarmgraph.transfer_baseline.run report
+"""
 from __future__ import annotations
 
 import argparse
@@ -7,31 +12,31 @@ import json
 from pathlib import Path
 import random
 
-from swarmgraph.initial_experiments.shared.codex_cli import CodexClient
-from swarmgraph.initial_experiments.shared.io import utc_now, write_json
-from swarmgraph.initial_experiments.shared.monitoring import judge_run
-from swarmgraph.initial_experiments.shared.reporting import load_runs, reading
-from .design import DEFAULT_ROOT, DEFAULT_REPORT, prepare, verify_source
+from .codex_cli import CodexClient
+from .design import DEFAULT_REPORT, DEFAULT_ROOT, PROTOCOL, prepare, verify_source
+from .io import utc_now, write_json
+from .monitoring import judge_episode, missing_judgments
+from .validation import validate_run
 
 STOP_NAMES = ("STOP", "STOP_SECURITY", "STOP_ACCESS")
 TERMINAL = {"access_forbidden", "safety_restriction", "authentication", "usage_limit", "stop_file"}
 
 
 class MonitorClient:
-    """Only review records; never request live/adversarial actor behavior.
+    """Only review records; never request actor behavior.
 
-    The dedicated study has its own records and stop files. The earlier E06
-    restriction remains untouched. Any access restriction in this task stops
-    its queued calls too; no alternate model, route, or revised prompt is used.
+    Any access restriction, authentication failure or usage limit writes
+    STOP_ACCESS and stops queued calls. No alternate model, route, or revised
+    prompt is used.
     """
     def __init__(self, root: Path, concurrency=4):
-        self.root = root
-        self.client = CodexClient(root, concurrency=concurrency, timeout=180, retries=1)
+        self.root = Path(root)
+        self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1)
         self.semaphore = asyncio.Semaphore(concurrency)
 
     @property
     def stopped(self):
-        return any((self.root/name).exists() for name in STOP_NAMES)
+        return any((self.root / name).exists() for name in STOP_NAMES)
 
     async def ask(self, prompt, schema, purpose, call_id=None):
         if purpose != "monitor":
@@ -41,73 +46,68 @@ class MonitorClient:
                 return {"status": "not_run", "call_id": call_id, "error_kind": "study_stopped"}
             result = await self.client.ask(prompt, schema, purpose, call_id)
             if result.get("error_kind") in TERMINAL or result["status"] == "usage_limit":
-                write_json(self.root/"STOP_ACCESS", {"at": utc_now(), "call_id": call_id,
-                    "error_kind": result.get("error_kind"), "result": result.get("output_path")})
+                write_json(self.root / "STOP_ACCESS", {"at": utc_now(), "call_id": call_id,
+                           "error_kind": result.get("error_kind"), "result": result.get("output_path")})
             return result
 
 
-async def monitor_partition(root: Path, partition: str, concurrency=4):
+async def monitor(root: Path, concurrency: int = 4) -> None:
+    """Take every planned reading that is not yet saved; resumable."""
     study = verify_source(root)
+    readings = PROTOCOL["readings_per_view"]
     client = MonitorClient(root, concurrency)
     if client.stopped:
         raise RuntimeError("Study access/usage stop exists; no monitor calls launched")
-    by_id = {r["manifest"]["run_id"]: r for r in load_runs(root)}
-    jobs = []
+    pending = []
     for case in study["cases"]:
-        if case["config"]["partition"] != partition:
-            continue
-        run = by_id[case["run_id"]]
-        if all(reading(run, view, "transcript")["complete"] for view in ("per_agent", "group")):
-            continue
-        jobs.append(case)
-    random.Random(104 if partition == "calibration" else 205).shuffle(jobs)
+        directory = root / "runs" / case["run_id"]
+        if not (directory / "private/outcomes.jsonl").exists():
+            raise RuntimeError("Episodes are missing; run the prepare phase first")
+        if missing_judgments(directory, readings):
+            pending.append(directory)
+    # Interleave conditions so any drift over time is not confounded with run type.
+    random.Random(PROTOCOL["version"]).shuffle(pending)
     queue = asyncio.Queue()
-    for job in jobs:
-        queue.put_nowait(job)
-    completed = 0
+    for directory in pending:
+        queue.put_nowait(directory)
+    processed = 0
 
     async def worker():
-        nonlocal completed
+        nonlocal processed
         while not queue.empty() and not client.stopped:
-            case = queue.get_nowait()
-            directory = root/"runs"/case["run_id"]
-            await judge_run(client, directory, include_service=False, include_fleet=False)
-            manifest = json.loads((directory/"manifest.json").read_text())
-            manifest["monitored"] = True
-            write_json(directory/"manifest.json", manifest)
-            completed += 1
-            print(json.dumps({"at": utc_now(), "partition": partition, "processed": completed,
-                "scheduled": len(jobs), "run_id": case["run_id"], "stopped": client.stopped}), flush=True)
-    await asyncio.gather(*(worker() for _ in range(min(4, max(1, len(jobs))))))
+            directory = queue.get_nowait()
+            await judge_episode(client, directory, readings)
+            write_json(directory / "validation.json", validate_run(directory))
+            manifest = json.loads((directory / "manifest.json").read_text())
+            manifest["monitored"] = not missing_judgments(directory, readings)
+            write_json(directory / "manifest.json", manifest)
+            processed += 1
+            print(json.dumps({"at": utc_now(), "processed": processed, "scheduled": len(pending),
+                              "run_id": directory.name, "stopped": client.stopped}), flush=True)
+    await asyncio.gather(*(worker() for _ in range(max(1, min(concurrency, len(pending))))))
     if client.stopped:
         raise RuntimeError("Monitoring stopped after CLI access or usage restriction; partial records retained")
 
 
 async def main(args):
-    from .analysis import freeze_thresholds, report
+    from .analysis import report
     root = Path(args.root).resolve()
     output = Path(args.output).resolve()
-    if args.phase == "prepare":
-        study = await prepare(root)
+    if args.phase in {"prepare", "all"}:
+        study = prepare(root)
         print(json.dumps({"prepared": len(study["cases"]), "root": str(root)}))
-    elif args.phase == "report":
-        report(root, output)
-    else:
-        verify_source(root)
+    if args.phase in {"monitor", "all"}:
         try:
-            if args.phase in {"calibrate", "all"}:
-                await monitor_partition(root, "calibration", args.concurrency)
-                freeze_thresholds(root)
-            if args.phase in {"evaluate", "all"}:
-                freeze_thresholds(root)
-                await monitor_partition(root, "evaluation", args.concurrency)
+            await monitor(root, args.concurrency)
         finally:
             report(root, output)
+    elif args.phase == "report":
+        report(root, output)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("prepare", "calibrate", "evaluate", "all", "report"))
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("phase", choices=("prepare", "monitor", "report", "all"))
     parser.add_argument("--root", default=str(DEFAULT_ROOT))
     parser.add_argument("--output", default=str(DEFAULT_REPORT))
     parser.add_argument("--concurrency", type=int, default=4)
