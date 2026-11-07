@@ -32,12 +32,16 @@ class MonitorClient:
 
     Any access restriction, authentication failure or usage limit writes
     STOP_ACCESS and stops queued calls. No alternate model, route, or revised
-    prompt is used. ``min_interval`` (seconds) spaces out the starts of calls,
+    prompt is used. With ``retry_forbidden``, generic 403s instead wait one minute
+    and retry the identical request. Explicit safety, auth and usage failures stop.
+    ``min_interval`` (seconds) spaces out the starts of calls,
     so a run can't burst: 2.0 caps it at 30 calls a minute.
     """
-    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0):
+    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0,
+                 retry_forbidden: bool = False):
         self.root = Path(root)
-        self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1)
+        self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1,
+                                  retry_forbidden=retry_forbidden)
         self.semaphore = asyncio.Semaphore(concurrency)
         self.min_interval = min_interval
         self._pace = asyncio.Lock()
@@ -61,7 +65,7 @@ class MonitorClient:
 
     @property
     def stopped(self):
-        return any((self.root / name).exists() for name in STOP_NAMES)
+        return any(self.root.glob("STOP*"))
 
     async def ask(self, prompt, schema, purpose, call_id=None):
         if purpose != "monitor":

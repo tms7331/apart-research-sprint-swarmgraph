@@ -60,7 +60,7 @@ async def investigate(destination: Path, smoke: bool = False, concurrency: int =
 
 
 async def explore(destination: Path, cases: list[str], run_indices: list[int], concurrency: int = 4,
-                  min_interval: float = 2.0) -> None:
+                  min_interval: float = 2.0, retry_forbidden: bool = False) -> None:
     """Experiment A v2: explore episodes with search and read tools, one exploration per episode per run index.
     No cases named means every episode."""
     destination = Path(destination)
@@ -68,7 +68,8 @@ async def explore(destination: Path, cases: list[str], run_indices: list[int], c
     missing = set(cases) - {e["case_id"] for e in episodes}
     if missing:
         raise ValueError(f"unknown cases: {sorted(missing)}")
-    client = MonitorClient(destination / "raw_calls", concurrency, min_interval)
+    client = MonitorClient(destination / "raw_calls", concurrency, min_interval,
+                           retry_forbidden=retry_forbidden)
     _stopped(client)
     started = await explorer.run_explorations(client, destination, episodes, run_indices)
     print(json.dumps({"at": utc_now(), "started": started}), flush=True)
@@ -93,6 +94,8 @@ def main(argv=None) -> None:
     parser.add_argument("command", choices=("generate", "investigate", "explore", "judge", "report"))
     parser.add_argument("--cases", default="", help="explore: comma-separated case IDs (default: every episode)")
     parser.add_argument("--run-index", default="0", help="explore: which pass(es) of the real run, e.g. 0 or 1 or 0,1")
+    parser.add_argument("--retry-forbidden", action="store_true",
+                        help="explore: retry generic HTTP 403s after a shared 60-second cooldown; explicit safety/auth/usage failures still stop")
     parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading or investigation each")
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--min-interval", type=float, default=0.0,
@@ -110,7 +113,8 @@ def main(argv=None) -> None:
             asyncio.run(investigate(destination, args.smoke, args.concurrency, min_interval=args.min_interval))
         elif args.command == "explore":
             asyncio.run(explore(destination, [c for c in args.cases.split(",") if c],
-                                [int(r) for r in args.run_index.split(",")], args.concurrency, args.min_interval))
+                                [int(r) for r in args.run_index.split(",")], args.concurrency, args.min_interval,
+                                retry_forbidden=args.retry_forbidden))
             return
     finally:
         reports(destination, args.smoke)
