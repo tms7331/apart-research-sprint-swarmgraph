@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from paper.__main__ import main
 
 PAPER = Path(__file__).resolve().parent.parent / "paper"

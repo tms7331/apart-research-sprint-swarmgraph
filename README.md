@@ -28,7 +28,7 @@ Needs Python 3.12+ and [uv](https://docs.astral.sh/uv/). Judge calls go through 
 
 ```bash
 uv sync
-uv run pytest -q                                          # offline
+uv run pytest -q                                          # fast offline checks
 
 uv run python -m swarmgraph.transfer_baseline generate    # 36 deterministic episodes, no model calls
 uv run python -m swarmgraph.transfer_baseline judge       # 540 judge readings, resumable
@@ -44,3 +44,10 @@ Add `--smoke` to the three `transfer_baseline` commands for a small run: one sam
 The paper build is preexisting work, written before this sprint for our earlier Apart hackathon project, the AI Collusion Research Sprint (October 2026). It was ported from https://github.com/carver/apart-research-collusion-sprint-2026 at commit 5134da7. Thomas Redfern was a participant on that project. Its Typst template, `paper/apart.typ`, comes from Jason's earlier run (apart-oneshot-collusion). `paper/README.md` lists exactly which files were ported and what changed.
 
 Everything else here was written during this sprint (first commit 2026-11-06 22:11 PST).
+
+## Tests
+
+`uv run pytest -q` runs the small offline checks. Scaling fixtures stop at 12
+agents; a guard rejects larger fleets before they run. The full experimental
+design is checked without executing it. PDF builds and the archived pilot's
+exhaustive simulator matrices are opt-in: `uv run pytest -q -m integration`.

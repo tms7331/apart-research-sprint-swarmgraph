@@ -11,6 +11,8 @@ import threading
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.integration
 from pypdf import PdfReader
 
 from paper.build import FINAL_NAME, BuildError, Problem, build, markdown

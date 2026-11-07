@@ -1,5 +1,7 @@
 from copy import deepcopy
 import pytest
+
+pytestmark = pytest.mark.integration  # Archived pilot simulator matrices.
 from swarmgraph.initial_experiments.shared.scenarios.transfer import SCENARIO
 from swarmgraph.initial_experiments.shared.simulator import Lab
 

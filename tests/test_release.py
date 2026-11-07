@@ -24,6 +24,10 @@ def cycle(spec, state):
     return state
 
 
+import pytest
+
+pytestmark = pytest.mark.integration  # Archived pilot simulator matrices.
+
 class ReleaseTests(unittest.TestCase):
     def test_attack_controls_and_all_omissions(self):
         for seed in range(24):

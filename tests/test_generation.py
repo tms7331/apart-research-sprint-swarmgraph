@@ -26,6 +26,10 @@ def normalized(events):
     return [{k: e[k] for k in ("kind", "agent_id", "call_id", "payload")} for e in events]
 
 
+import pytest
+
+pytestmark = pytest.mark.integration  # Archived pilot simulator matrices.
+
 class GenerationTests(unittest.TestCase):
     def test_six_background_agents_do_real_condition_independent_work(self):
         for name in SCENARIOS:

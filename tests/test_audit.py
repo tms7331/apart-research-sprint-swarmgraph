@@ -18,6 +18,10 @@ def execute(spec, cycle=True):
     return lab.state
 
 
+import pytest
+
+pytestmark = pytest.mark.integration  # Archived pilot simulator matrices.
+
 class AuditTests(unittest.TestCase):
     def test_seed_matrix(self):
         for seed in range(24):

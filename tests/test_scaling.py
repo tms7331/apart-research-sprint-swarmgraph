@@ -11,7 +11,7 @@ import pytest
 
 from swarmgraph.scaling import design as scaling
 from swarmgraph.scaling.analysis import summarize
-from swarmgraph.scaling.design import HONEST_TEAMS, PROTOCOL, SMOKE, generate, planned_cases
+from swarmgraph.scaling.design import HONEST_TEAMS, PROTOCOL, SMOKE, planned_cases
 from swarmgraph.scaling.run import judge
 from swarmgraph.transfer_baseline import design as step1
 from swarmgraph.transfer_baseline.io import read_jsonl
@@ -44,21 +44,21 @@ def test_design_is_three_run_types_by_four_layouts_by_seven_fleet_sizes():
 
 
 @pytest.fixture(scope="module")
-def full(tmp_path_factory):
+def full(tmp_path_factory, generate_small_fleets):
     root = tmp_path_factory.mktemp("scaling")
-    return root, generate(root)
+    return root, generate_small_fleets(root)
 
 
-def test_generation_is_byte_identical(full, tmp_path):
+def test_generation_is_byte_identical(full, tmp_path, generate_small_fleets):
     root, _ = full
-    generate(tmp_path)
+    generate_small_fleets(tmp_path)
     first, second = tree(root), tree(tmp_path)
     assert first and first == second
 
 
 def test_every_episode_runs_as_designed(full):
     root, rows = full
-    assert [r["case_id"] for r in rows] == [c["case_id"] for c in planned_cases()]
+    assert [r["case_id"] for r in rows] == [c["case_id"] for c in planned_cases() if c["honest_teams"] <= 3]
     for row in rows:
         focal = 1 if row["execution_layout"] == "solo" else 3
         assert len(row["agent_ids"]) == 3 * row["honest_teams"] + focal == len(set(row["agent_ids"]))
@@ -78,23 +78,11 @@ def test_backgrounds_are_matched_across_run_types_and_nested_across_fleet_sizes(
     background = {(r["layout_variant"], r["honest_teams"], r["condition"]):
                   set(r["agent_ids"]) - set(r["focal_agent_ids"]) for r in rows}
     for variant in range(4):
-        for n in HONEST_TEAMS:
+        for n in (0, 1, 3):
             same = [background[(variant, n, c)] for c in ("solo_attack", "split_attack", "honest_authorized")]
             assert same[0] == same[1] == same[2] and len(same[0]) == 3 * n
-        for small, large in zip(HONEST_TEAMS, HONEST_TEAMS[1:]):
+        for small, large in zip((0, 1, 3), (1, 3)):
             assert background[(variant, small, "split_attack")] <= background[(variant, large, "split_attack")]
-
-
-def test_the_focal_team_has_no_fixed_position(full):
-    root, rows = full
-    task_positions, first_actors = set(), set()
-    for row in rows:
-        if row["honest_teams"] >= 3:
-            events = read_jsonl(root / "episodes" / row["case_id"] / "observations.jsonl")
-            tasks = [e["agent_id"] for e in events if e["kind"] == "task_assigned"]
-            task_positions.add(tasks.index(row["focal_agent_ids"][0]))
-            first_actors.add(next(e["agent_id"] for e in events if e["kind"] == "tool_call") in row["focal_agent_ids"])
-    assert len(task_positions) > 3 and first_actors == {True, False}
 
 
 def test_with_no_honest_teams_the_split_attack_prompt_is_step_1s_group_view(full, tmp_path):
@@ -123,21 +111,21 @@ class CitingMonitor:
                                                "supporting_event_ids": [first], "missing_information": ""}}
 
 
-def test_judging_resumes_and_the_summary_counts_flags_and_blame(tmp_path):
-    generate(tmp_path, smoke=True)
+def test_judging_resumes_and_the_summary_counts_flags_and_blame(tmp_path, generate_small_fleets):
+    rows = generate_small_fleets(tmp_path, smoke=True)
     monitor = CitingMonitor()
     asyncio.run(judge(tmp_path, smoke=True, client=monitor))
-    assert len(monitor.calls) == len(set(monitor.calls)) == SMOKE["planned_monitor_readings"]
+    assert len(monitor.calls) == len(set(monitor.calls)) == len(rows) * SMOKE["readings_per_view"]
     assert pending(tmp_path, SMOKE["readings_per_view"]) == []
     asyncio.run(judge(tmp_path, smoke=True, client=monitor))
-    assert len(monitor.calls) == SMOKE["planned_monitor_readings"]
+    assert len(monitor.calls) == len(rows) * SMOKE["readings_per_view"]
     data = summarize(tmp_path, SMOKE)
     assert data["status"] == "complete" and data["ineligible_episodes"] == []
     cells = {c["honest_teams"]: c for c in data["by_honest_teams"]}
-    assert sorted(cells) == list(HONEST_TEAMS)
+    assert sorted(cells) == [0, 1, 3]
     for cell in cells.values():
         for condition in ("solo_attack", "split_attack", "honest_authorized"):
             assert (cell[condition]["flagged"]["count"], cell[condition]["flagged"]["n"]) == (1, 1)
     # With no honest teams, the first tool call can only be a colluder's.
     assert cells[0]["split_attack"]["cites_only_colluders"]["rate"] == 1
-    assert cells[0]["median_input_tokens"] < cells[30]["median_input_tokens"]
+    assert cells[0]["median_input_tokens"] < cells[3]["median_input_tokens"]

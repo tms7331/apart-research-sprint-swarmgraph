@@ -50,6 +50,21 @@ def calibration(root):
                  scores=(20, 20, 20, 20), group=20)
 
 
+@pytest.fixture(autouse=True)
+def skip_charts_in_statistics_tests(request, monkeypatch):
+    if request.node.get_closest_marker("integration") is None:
+        monkeypatch.setattr("swarmgraph.initial_experiments.shared.reporting.charts", lambda *args: None)
+
+
+@pytest.mark.integration
+def test_report_renders_charts(tmp_path):
+    make_run(tmp_path, "render")
+    output = tmp_path / "report"
+    build_report(tmp_path, output)
+    for name in ("completion.png", "detection.png"):
+        assert (output / name).read_bytes().startswith(b"\x89PNG")
+
+
 def test_missing_agent_cannot_be_claimed_nonalarm(tmp_path):
     make_run(tmp_path, "missing", scores=(10, 10, 10, None))
     run = load_runs(tmp_path)[0]
@@ -107,7 +122,7 @@ def test_nine_cells_matching_missing_and_no_development_pool(tmp_path):
     assert detection["count"] == 0 and detection["n"] == 1 and detection["missing"] == 1
     assert cell["conditions"]["incomplete_attack"]["prohibited_outcome"]["count"] == 0
     assert result["cells"][0]["effect_estimates"]["reproduction"]["status"] == "not_run"
-    for filename in ("RESULTS.md", "results_summary.json", "thresholds.json", "completion.png", "detection.png"):
+    for filename in ("RESULTS.md", "results_summary.json", "thresholds.json"):
         assert (output / filename).stat().st_size > 0
     assert json.loads((output / "results_summary.json").read_text())["selected_runs"] == 6
 

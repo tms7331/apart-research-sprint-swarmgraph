@@ -5,6 +5,8 @@ import asyncio
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from paper.data import transfer_baseline
 from paper.ledger import Ledger
 from swarmgraph.transfer_baseline.design import generate

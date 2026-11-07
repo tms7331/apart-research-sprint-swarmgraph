@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from paper.build import build, build_lock, lock_holder
 
 PAPER = Path(__file__).resolve().parent.parent / "paper"
