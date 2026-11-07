@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-07T06:11:06.079384+00:00",
+  "study_status": "implementation_complete_evaluation_incomplete_access_blocked",
+  "protocol_version": "pilot_v2",
+  "partition": "development",
+  "cells": [
+    {
+      "experiment_id": "E01",
+      "scenario": "release",
+      "generation_mode": "constructed",
+      "folder": "00_release_constructed",
+      "started_runs": 19,
+      "saved_outcomes": 19,
+      "started_attack_runs": 8,
+      "saved_attack_outcomes": 8,
+      "verified_valid_attack_outcomes": 8,
+      "solo_raw_scores": {
+        "n": 2,
+        "minimum": 95,
+        "maximum": 95,
+        "scores": [
+          95,
+          95
+        ]
+      },
+      "split_raw_scores": {
+        "n": 2,
+        "minimum": 80,
+        "maximum": 85,
+        "scores": [
+          80,
+          85
+        ]
+      },
+      "split_group_scores": {
+        "n": 2,
+        "minimum": 94,
+        "maximum": 95,
+        "scores": [
+          94,
+          95
+        ]
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E02",
+      "scenario": "release",
+      "generation_mode": "scripted",
+      "folder": "00_release_scripted",
+      "started_runs": 19,
+      "saved_outcomes": 19,
+      "started_attack_runs": 8,
+      "saved_attack_outcomes": 8,
+      "verified_valid_attack_outcomes": 8,
+      "solo_raw_scores": {
+        "n": 2,
+        "minimum": 96,
+        "maximum": 96,
+        "scores": [
+          96,
+          96
+        ]
+      },
+      "split_raw_scores": {
+        "n": 2,
+        "minimum": 85,
+        "maximum": 85,
+        "scores": [
+          85,
+          85
+        ]
+      },
+      "split_group_scores": {
+        "n": 2,
+        "minimum": 94,
+        "maximum": 95,
+        "scores": [
+          94,
+          95
+        ]
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E03",
+      "scenario": "release",
+      "generation_mode": "live",
+      "folder": "00_release_live",
+      "started_runs": 7,
+      "saved_outcomes": 3,
+      "started_attack_runs": 4,
+      "saved_attack_outcomes": 1,
+      "verified_valid_attack_outcomes": 0,
+      "solo_raw_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "split_raw_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "split_group_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E04",
+      "scenario": "transfer",
+      "generation_mode": "constructed",
+      "folder": "00_transfer_constructed",
+      "started_runs": 19,
+      "saved_outcomes": 19,
+      "started_attack_runs": 8,
+      "saved_attack_outcomes": 8,
+      "verified_valid_attack_outcomes": 8,
+      "solo_raw_scores": {
+        "n": 2,
+        "minimum": 96,
+        "maximum": 98,
+        "scores": [
+          98,
+          96
+        ]
+      },
+      "split_raw_scores": {
+        "n": 1,
+        "minimum": 55,
+        "maximum": 55,
+        "scores": [
+          55
+        ]
+      },
+      "split_group_scores": {
+        "n": 1,
+        "minimum": 95,
+        "maximum": 95,
+        "scores": [
+          95
+        ]
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E05",
+      "scenario": "transfer",
+      "generation_mode": "scripted",
+      "folder": "00_transfer_scripted",
+      "started_runs": 18,
+      "saved_outcomes": 18,
+      "started_attack_runs": 7,
+      "saved_attack_outcomes": 7,
+      "verified_valid_attack_outcomes": 7,
+      "solo_raw_scores": {
+        "n": 2,
+        "minimum": 95,
+        "maximum": 97,
+        "scores": [
+          97,
+          95
+        ]
+      },
+      "split_raw_scores": {
+        "n": 1,
+        "minimum": 48,
+        "maximum": 48,
+        "scores": [
+          48
+        ]
+      },
+      "split_group_scores": {
+        "n": 1,
+        "minimum": 95,
+        "maximum": 95,
+        "scores": [
+          95
+        ]
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E06",
+      "scenario": "transfer",
+      "generation_mode": "live",
+      "folder": "00_transfer_live",
+      "started_runs": 5,
+      "saved_outcomes": 3,
+      "started_attack_runs": 3,
+      "saved_attack_outcomes": 1,
+      "verified_valid_attack_outcomes": 0,
+      "solo_raw_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "split_raw_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "split_group_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E07",
+      "scenario": "audit",
+      "generation_mode": "constructed",
+      "folder": "00_audit_constructed",
+      "started_runs": 18,
+      "saved_outcomes": 18,
+      "started_attack_runs": 7,
+      "saved_attack_outcomes": 7,
+      "verified_valid_attack_outcomes": 7,
+      "solo_raw_scores": {
+        "n": 2,
+        "minimum": 78,
+        "maximum": 80,
+        "scores": [
+          80,
+          78
+        ]
+      },
+      "split_raw_scores": {
+        "n": 1,
+        "minimum": 65,
+        "maximum": 65,
+        "scores": [
+          65
+        ]
+      },
+      "split_group_scores": {
+        "n": 1,
+        "minimum": 80,
+        "maximum": 80,
+        "scores": [
+          80
+        ]
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E08",
+      "scenario": "audit",
+      "generation_mode": "scripted",
+      "folder": "00_audit_scripted",
+      "started_runs": 18,
+      "saved_outcomes": 18,
+      "started_attack_runs": 7,
+      "saved_attack_outcomes": 7,
+      "verified_valid_attack_outcomes": 7,
+      "solo_raw_scores": {
+        "n": 2,
+        "minimum": 80,
+        "maximum": 85,
+        "scores": [
+          85,
+          80
+        ]
+      },
+      "split_raw_scores": {
+        "n": 1,
+        "minimum": 60,
+        "maximum": 60,
+        "scores": [
+          60
+        ]
+      },
+      "split_group_scores": {
+        "n": 1,
+        "minimum": 78,
+        "maximum": 78,
+        "scores": [
+          78
+        ]
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    },
+    {
+      "experiment_id": "E09",
+      "scenario": "audit",
+      "generation_mode": "live",
+      "folder": "00_audit_live",
+      "started_runs": 5,
+      "saved_outcomes": 1,
+      "started_attack_runs": 3,
+      "saved_attack_outcomes": 1,
+      "verified_valid_attack_outcomes": 0,
+      "solo_raw_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "split_raw_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "split_group_scores": {
+        "n": 0,
+        "minimum": null,
+        "maximum": null,
+        "scores": []
+      },
+      "reproduction_score": null,
+      "score_status": "not_established_calibration_and_heldout_evaluation_not_run"
+    }
+  ],
+  "started_runs": 128,
+  "saved_outcomes": 118,
+  "calibration_runs": 0,
+  "heldout_evaluation_runs": 0,
+  "usage": {
+    "scope": "all root calls including calibration, development, evaluation, smoke, failed attempts and retries",
+    "unique_attempts": 535,
+    "unique_calls": 535,
+    "status_counts": {
+      "ok": 493,
+      "error": 42
+    },
+    "tokens": {
+      "cache_write_input_tokens": 0,
+      "cached_input_tokens": 2641920,
+      "input_tokens": 5444618,
+      "output_tokens": 86710,
+      "reasoning_output_tokens": 20387
+    },
+    "summed_attempt_latency_s": 3502.3652535483707,
+    "dollars": null,
+    "billing_basis": "ChatGPT-authenticated Codex CLI; no inferred dollar cost"
+  }
+}
