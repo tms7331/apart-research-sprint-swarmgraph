@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "format": "graph_pilot_snapshot_v1",
+  "protocol_version": "pilot_v2",
+  "partition": "development",
+  "status": "incomplete_access_blocked",
+  "selection": "All pilot_v2 runs and judgments; transcripts for every judged or live run.",
+  "runs": 128,
+  "saved_outcomes": 118,
+  "unknown_outcomes": 10,
+  "transcripts": 37,
+  "judgments": 267,
+  "judgment_statuses": {
+    "ok": 262,
+    "error": 5
+  },
+  "actor_calls": 174,
+  "excluded_protocols": {
+    "pilot_v1": 81
+  },
+  "raw_archive": "raw",
+  "original_raw_archive": "experiments/graph_pilot",
+  "path_relocation": "Only output_path and call_output_path provenance pointers are rebased to logs/graph_pilot/raw/.",
+  "usage_scope": "All original pilot calls, including the excluded pilot_v1 work.",
+  "claims": "Uncalibrated development evidence; missing outcomes/readings remain unknown."
+}

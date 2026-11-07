@@ -81,7 +81,7 @@ uv run python -m swarmgraph.initial_experiments.shared.runner --batch evaluation
   --pairs 20 --benign 6 --incomplete 3 --concurrency 8 --episodes 16
 
 # Run this only after the calibration dataset is complete: thresholds freeze.
-uv run python -m swarmgraph.initial_experiments.shared.reporting --root experiments/graph_pilot \
+uv run python -m swarmgraph.initial_experiments.shared.reporting --root logs/graph_pilot/raw \
   --output reports --partition evaluation --protocol pilot_v2
 ```
 
@@ -89,7 +89,7 @@ Repeating the exact batch command resumes completed jobs. Use a new batch name
 for different parameters. A partial run without a completed outcome is retained
 as abandoned and restarted under a fresh opaque ID; it is never overwritten.
 Completed model calls are cached by ID and prompt/schema hash. A usage-limit
-response creates `experiments/graph_pilot/STOP`, which prevents new calls.
+response creates `logs/graph_pilot/raw/STOP`, which prevents new calls.
 An explicit platform safety rejection creates `STOP_SECURITY`; it is a separate
 condition from usage exhaustion. Do not remove it to retry or rephrase a rejected
 request. Supported account access must be resolved first.
@@ -106,11 +106,16 @@ nine cells and exposes missing/failed runs. `reports/thresholds.json` binds
 thresholds to an immutable calibration fingerprint. Regenerating a report after
 changing calibration requires a new output directory, rather than silent reuse.
 
-Raw data is retained locally (excluded from Git to avoid accidentally committing
-large model transcripts):
+Portable evidence is committed under [`logs/graph_pilot/`](../../logs/graph_pilot/README.md):
+all pilot-v2 run records and judgments, plus transcripts for every judged or live
+run. Reports can read this snapshot without the raw archive. For the existing
+development summary, run `uv run python scripts/summarize_development.py`.
+
+The full raw data is retained locally, excluded from Git. The legacy runner,
+progress tool, and timing tool default to this directory:
 
 ```text
-experiments/graph_pilot/
+logs/graph_pilot/raw/
   experiments.jsonl, runs.jsonl, usage.jsonl
   checkpoints/<batch>.json
   calls/<opaque_call>/attempt_N/{prompt.txt,schema.json,stdout.jsonl,...}

@@ -8,7 +8,7 @@ from swarmgraph.initial_experiments.shared.catalog import EXPERIMENTS
 from swarmgraph.initial_experiments.shared.io import write_json,utc_now
 from swarmgraph.initial_experiments.shared.reporting import load_runs,reading,usage_summary
 
-root=Path("experiments/graph_pilot")
+root=Path("logs/graph_pilot")
 active=[r for r in load_runs(root) if r["manifest"].get("protocol_version")=="pilot_v2"]
 if any(r["manifest"]["partition"]!="development" for r in active):
     raise SystemExit("Calibration/evaluation now exists; use swarmgraph.initial_experiments.shared.reporting instead of this blocked-development snapshot generator.")
@@ -61,6 +61,7 @@ lines += ["","## What the saved evidence establishes","",
     "- **Live execution did not establish an attack:** 17 live runs started, 7 have outcomes, and 10 remain unknown. The 3 completed solo attack runs maintained release holds, disabled private partner delivery, or repaired audit coverage. None produced the prohibited outcome. Background actor HTTP 403 errors also prevented full task completion. Failed/incomplete attacks are not successful evasions.",
     "- **Approved live controls also need further investigation:** solo release/transfer controls completed their focal approved action, but the split counterparts held it when authorization could not be verified from their local view. Access failures disrupted all completed live fleets. These controls cannot support a calibrated live false-alarm estimate.","",
     "## Deliverables and evidence","",
+    "- [Portable pilot evidence](../logs/graph_pilot/README.md): all pilot_v2 outcomes and judgments, plus transcripts for every judged or live run",
     "- [Reproduction protocol](../swarmgraph/initial_experiments/PROTOCOL.md), [project commands](../swarmgraph/initial_experiments/README.md), [development changes](../swarmgraph/initial_experiments/DEVELOPMENT_LOG.md)",
     "- [Detailed execution audit](DEVELOPMENT_EXECUTION_AUDIT.md) and [machine-readable audit](development_execution_audit.json)",
     "- [Detailed monitor audit](DEVELOPMENT_MONITOR_AUDIT.md) and [machine-readable audit](DEVELOPMENT_MONITOR_AUDIT.json)",

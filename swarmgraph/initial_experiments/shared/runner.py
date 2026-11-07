@@ -107,7 +107,7 @@ async def run(args):
 
 def parser():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--root",default="experiments/graph_pilot")
+    p.add_argument("--root",default="logs/graph_pilot/raw")
     p.add_argument("--batch",required=True)
     p.add_argument("--experiments",default="",help="comma-separated E01..E09; empty means all")
     p.add_argument("--partition",choices=["development","calibration","evaluation"],default="development")

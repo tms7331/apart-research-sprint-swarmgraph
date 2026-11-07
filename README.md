@@ -15,6 +15,7 @@ We ask how to find which agents to read together without being told: through the
 |---|---|
 | [`swarmgraph/transfer_baseline/`](swarmgraph/transfer_baseline/README.md) | **Step 1**, the minimal Kitaoka reproduction. Self-contained: scripted episodes, the LLM monitor and the analysis |
 | `logs/transfer_baseline/` | Step 1's logs: the deterministic episodes and every judge reading (`judgments.jsonl`) |
+| [`logs/graph_pilot/`](logs/graph_pilot/README.md) | Portable evidence from the earlier nine-cell pilot; the complete local archive is gitignored under `raw/` |
 | `reports/transfer_baseline/` | Step 1's report, computed from those logs |
 | [`paper/`](paper/README.md) | the report, in Typst, and the build that fills its numbers, tables and figures from the logs. The build is preexisting (below) |
 | [`specs/`](specs/) | the project idea (`GRAPH_IDEA.md`), the plan (`GRAPH_PLAN.md`) and notes on the key papers (`KEY_PAPERS.md`) |

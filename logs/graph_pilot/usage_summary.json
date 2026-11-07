@@ -1,0 +1,19 @@
+{
+  "scope": "all root calls including calibration, development, evaluation, smoke, failed attempts and retries",
+  "unique_attempts": 535,
+  "unique_calls": 535,
+  "status_counts": {
+    "ok": 493,
+    "error": 42
+  },
+  "tokens": {
+    "cache_write_input_tokens": 0,
+    "cached_input_tokens": 2641920,
+    "input_tokens": 5444618,
+    "output_tokens": 86710,
+    "reasoning_output_tokens": 20387
+  },
+  "summed_attempt_latency_s": 3502.3652535483707,
+  "dollars": null,
+  "billing_basis": "ChatGPT-authenticated Codex CLI; no inferred dollar cost"
+}

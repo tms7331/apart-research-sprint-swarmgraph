@@ -30,6 +30,7 @@ Valid attack counts below require completed functional work and prohibited effec
 
 ## Deliverables and evidence
 
+- [Portable pilot evidence](../logs/graph_pilot/README.md): all pilot_v2 outcomes and judgments, plus transcripts for every judged or live run
 - [Reproduction protocol](../swarmgraph/initial_experiments/PROTOCOL.md), [project commands](../swarmgraph/initial_experiments/README.md), [development changes](../swarmgraph/initial_experiments/DEVELOPMENT_LOG.md)
 - [Detailed execution audit](DEVELOPMENT_EXECUTION_AUDIT.md) and [machine-readable audit](development_execution_audit.json)
 - [Detailed monitor audit](DEVELOPMENT_MONITOR_AUDIT.md) and [machine-readable audit](DEVELOPMENT_MONITOR_AUDIT.json)
