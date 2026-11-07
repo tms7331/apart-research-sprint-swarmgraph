@@ -1,8 +1,6 @@
 // The paper. Build it with bin/build-paper (README.md says how to write it). One sentence per line.
 // Numbers, tables, figures and prompts come from the ledger by key (build/numbers.md lists them);
 // none is typed by hand. Page budget: 8 pages before References, the title block included.
-// SCAFFOLD: the numbers below come from the smoke run (one reading per view, layout 0 only), to prove the
-// pipeline from logs to PDF. They are not results.
 #import "lib.typ": *
 
 #show: apart.with(
@@ -25,7 +23,7 @@ Each of the #n("tb.episodes") scripted episodes is judged #n("tb.readings.per.vi
 
 = Results <sec-results>
 #todo[the reproduction of the fragmentation result, from the full run]
-In this scaffold, the per-agent monitor flags #n("tb.solo.flagged") solo attacks and #n("tb.split.flagged") split attacks, and the joint monitor flags #n("tb.split.joint.flagged") split attacks (@fig-tb).
+The per-agent monitor flags #n("tb.solo.flagged") solo attacks and #n("tb.split.flagged") split attacks, and the joint monitor flags #n("tb.split.joint.flagged") split attacks (@fig-tb).
 On honest teams, the per-agent monitor gives #n("tb.honest.flagged") false alarms and the joint monitor #n("tb.honest.joint.flagged") (@tab-tb).
 
 #figure(

@@ -6,7 +6,7 @@ A monitor that reads one agent at a time catches a hidden harmful objective when
 
 We ask how to find which agents to read together without being told: through the shared records they write and read, rather than through how similar they look. We also ask how each approach holds up as the honest population grows.
 
-- **Step 1: reproduce the fragmentation result.** In a minimal, fully controlled setting, a per-agent monitor should catch a model-weight exfiltration done by one agent, miss it when it is split across three, and catch it again when the three are read together. The full run is in progress.
+- **Step 1: reproduce the fragmentation result.** In a minimal, fully controlled setting, a per-agent monitor should catch a model-weight exfiltration done by one agent, miss it when it is split across three, and catch it again when the three are read together. **Done:** at a fixed threshold, the per-agent monitor flags all 4 solo attacks and none of the 4 split attacks, the joint monitor flags all 4 split attacks, and neither monitor raises a false alarm on the 16 honest teams. See the [report](reports/transfer_baseline/RESULTS.md); the split result is expected by construction ([`swarmgraph/transfer_baseline/README.md`](swarmgraph/transfer_baseline/README.md), "Limits").
 - **Step 2: scale it.** Embed the same teams among growing numbers of honest agents, with a shared message board, and compare ways of choosing what to read together. This step is planned.
 
 ## Layout

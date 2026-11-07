@@ -3,9 +3,9 @@
 Reads the run's two logs, episodes.jsonl and judgments.jsonl, through swarmgraph.transfer_baseline.analysis,
 so the paper counts exactly what the run's own report counts. The design comes from the run's protocol.json.
 
-For now RUN is the smoke run (logs/transfer_baseline_smoke/, gitignored, one reading per view): a scaffold
-that proves the pipeline from logs to figure. Point RUN at logs/transfer_baseline/ once the full run is
-committed; a --final build refuses logs that aren't committed and pushed."""
+RUN is the full run, committed in logs/transfer_baseline/. A --final build refuses logs that aren't
+committed and pushed. The smoke run (logs/transfer_baseline_smoke/, gitignored) has the same layout, so RUN
+can point there to try a change cheaply."""
 
 import json
 from pathlib import Path
@@ -17,7 +17,7 @@ from swarmgraph.transfer_baseline.analysis import summarize
 from swarmgraph.transfer_baseline.io import read_jsonl
 
 ROOT = Path(__file__).resolve().parents[2]
-RUN = ROOT / "logs" / "transfer_baseline_smoke"
+RUN = ROOT / "logs" / "transfer_baseline"
 TEAM = ("case_id",)  # each team is its own cell: one episode, with its own prompts
 ROWS = {  # the figure's rows, top to bottom: (label, conditions)
     "solo attack": ("solo_attack",),
@@ -34,15 +34,20 @@ INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e0e0e0"
 
 
 def draw_scores(ax: Any, data: dict) -> None:
-    """One dot per team and monitor, at its median score; rows by run type; the flag threshold dashed."""
+    """One dot per team and monitor, at its median score; rows by run type; the flag threshold dashed.
+
+    Each series keeps to its own band of the row (per-agent above, joint below), and its teams spread evenly
+    across that band in score order, so equal scores sit side by side and no dot leaves its row."""
     rows, threshold = data["rows"], data["threshold"]
+    band = 0.34  # each series' share of a row
     for i, (label, conditions) in enumerate(ROWS.items()):
         teams = [r for r in rows if r["condition"] in conditions]
         for j, (key, (_, color, marker)) in enumerate(SERIES.items()):
-            scores = [r[key] for r in teams if r[key] is not None]
+            scores = sorted(r[key] for r in teams if r[key] is not None)
+            step = band / max(len(scores) - 1, 1) if len(scores) > 1 else 0
             for k, score in enumerate(scores):
-                y = i + (j - 0.5) * 0.28 + (k - (len(scores) - 1) / 2) * 0.06
-                ax.plot(score, y, marker, color=color, markersize=6, markeredgecolor="white", markeredgewidth=1)
+                y = i + (j - 0.5) * (band + 0.06) + (k - (len(scores) - 1) / 2) * step
+                ax.plot(score, y, marker, color=color, markersize=5, markeredgecolor="white", markeredgewidth=0.8)
     ax.axvline(threshold, color=MUTED, linewidth=1, linestyle=(0, (4, 3)))
     ax.text(threshold + 1, -0.75, f"flagged at {threshold}+", color=MUTED, fontsize=8, va="bottom")
     ax.set_yticks(range(len(ROWS)), labels=list(ROWS), fontsize=8, color=INK)
@@ -96,4 +101,4 @@ def transfer_baseline(ledger: Ledger) -> None:
         how="median score per view, per episode",
     )
     ledger.figure("tb-figure", draw_scores, {"rows": rows, "threshold": threshold},
-                  how="one dot per team and monitor at its median score", size=(6.5, 2.6))
+                  how="one dot per team and monitor at its median score", size=(6.5, 3.6))
