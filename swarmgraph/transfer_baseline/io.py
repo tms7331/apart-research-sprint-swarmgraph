@@ -12,10 +12,6 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
-def opaque_id(prefix: str = "r") -> str:
-    return prefix + "_" + uuid.uuid4().hex[:20]
-
-
 def canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
@@ -41,6 +37,14 @@ def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
     tmp.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
+    os.replace(tmp, path)
+
+
+def write_jsonl(path: Path, records: list[dict]) -> None:
+    """Replace a JSONL file atomically; one canonical line per record."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
+    tmp.write_text("".join(canonical(record) + "\n" for record in records))
     os.replace(tmp, path)
 
 

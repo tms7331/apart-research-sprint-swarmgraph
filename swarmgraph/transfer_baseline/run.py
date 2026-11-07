@@ -1,8 +1,12 @@
-"""Prepare, monitor and report the Step 1 transfer baseline.
+"""Generate, judge and report the Step 1 transfer baseline.
 
-    uv run python -m swarmgraph.transfer_baseline.run prepare            # 36 scripted episodes, no model calls
-    uv run python -m swarmgraph.transfer_baseline.run monitor --concurrency 8   # 540 judge calls
-    uv run python -m swarmgraph.transfer_baseline.run report
+    uv run python -m swarmgraph.transfer_baseline generate [--smoke]   # deterministic episodes, no model calls
+    uv run python -m swarmgraph.transfer_baseline judge [--smoke]      # the missing judge readings
+    uv run python -m swarmgraph.transfer_baseline report [--smoke]
+
+Full run: logs/transfer_baseline/ (540 readings), report in reports/transfer_baseline/.
+Smoke run (--smoke): logs/transfer_baseline_smoke/ (27 readings), report beside it.
+The raw Codex CLI archive goes to <destination>/raw_calls/, which Git ignores.
 """
 from __future__ import annotations
 
@@ -13,10 +17,9 @@ from pathlib import Path
 import random
 
 from .codex_cli import CodexClient
-from .design import DEFAULT_REPORT, DEFAULT_ROOT, PROTOCOL, prepare, verify_source
-from .io import utc_now, write_json
-from .monitoring import judge_episode, missing_judgments
-from .validation import validate_run
+from .design import DESTINATION, REPORT, SMOKE_DESTINATION, generate, protocol
+from .io import read_jsonl, utc_now, write_json
+from .monitoring import judge_one, planned_judgments, prompt_for, successful_judgment_ids
 
 STOP_NAMES = ("STOP", "STOP_SECURITY", "STOP_ACCESS")
 TERMINAL = {"access_forbidden", "safety_restriction", "authentication", "usage_limit", "stop_file"}
@@ -51,64 +54,53 @@ class MonitorClient:
             return result
 
 
-async def monitor(root: Path, concurrency: int = 4) -> None:
-    """Take every planned reading that is not yet saved; resumable."""
-    study = verify_source(root)
-    readings = PROTOCOL["readings_per_view"]
-    client = MonitorClient(root, concurrency)
-    if client.stopped:
-        raise RuntimeError("Study access/usage stop exists; no monitor calls launched")
-    pending = []
-    for case in study["cases"]:
-        directory = root / "runs" / case["run_id"]
-        if not (directory / "private/outcomes.jsonl").exists():
-            raise RuntimeError("Episodes are missing; run the prepare phase first")
-        if missing_judgments(directory, readings):
-            pending.append(directory)
-    # Interleave conditions so any drift over time is not confounded with run type.
-    random.Random(PROTOCOL["version"]).shuffle(pending)
-    queue = asyncio.Queue()
-    for directory in pending:
-        queue.put_nowait(directory)
-    processed = 0
-
-    async def worker():
-        nonlocal processed
-        while not queue.empty() and not client.stopped:
-            directory = queue.get_nowait()
-            await judge_episode(client, directory, readings)
-            write_json(directory / "validation.json", validate_run(directory))
-            manifest = json.loads((directory / "manifest.json").read_text())
-            manifest["monitored"] = not missing_judgments(directory, readings)
-            write_json(directory / "manifest.json", manifest)
-            processed += 1
-            print(json.dumps({"at": utc_now(), "processed": processed, "scheduled": len(pending),
-                              "run_id": directory.name, "stopped": client.stopped}), flush=True)
-    await asyncio.gather(*(worker() for _ in range(max(1, min(concurrency, len(pending))))))
-    if client.stopped:
-        raise RuntimeError("Monitoring stopped after CLI access or usage restriction; partial records retained")
+def pending(destination: Path, readings: int) -> list[dict]:
+    """Planned readings without a successful saved judgment, in a fixed shuffled order."""
+    episodes = read_jsonl(Path(destination) / "episodes.jsonl")
+    if not episodes:
+        raise RuntimeError("No episodes; run generate first")
+    done = successful_judgment_ids(destination)
+    todo = [p for episode in episodes for p in planned_judgments(episode, readings) if p["judgment_id"] not in done]
+    for planned in todo:
+        prompt_for(destination, planned)  # fail before any call if episodes changed since generate
+    # Interleave run types so drift over time is not confounded with condition.
+    random.Random(0).shuffle(todo)
+    return todo
 
 
-async def main(args):
+async def judge(destination: Path, smoke: bool = False, concurrency: int = 4, client=None) -> None:
+    destination = Path(destination)
+    todo = pending(destination, protocol(smoke)["readings_per_view"])
+    client = client or MonitorClient(destination / "raw_calls", concurrency)
+    if getattr(client, "stopped", False):
+        raise RuntimeError("A stop marker exists in raw_calls/; no judge calls launched")
+    print(json.dumps({"at": utc_now(), "pending_readings": len(todo)}), flush=True)
+    await asyncio.gather(*(judge_one(client, destination, planned) for planned in todo))
+    remaining = len(pending(destination, protocol(smoke)["readings_per_view"]))
+    print(json.dumps({"at": utc_now(), "taken": len(todo) - remaining, "still_missing": remaining}), flush=True)
+    if getattr(client, "stopped", False):
+        raise RuntimeError("Judging stopped after a CLI access or usage restriction; saved judgments are kept")
+
+
+def main(argv=None) -> None:
     from .analysis import report
-    root = Path(args.root).resolve()
-    output = Path(args.output).resolve()
-    if args.phase in {"prepare", "all"}:
-        study = prepare(root)
-        print(json.dumps({"prepared": len(study["cases"]), "root": str(root)}))
-    if args.phase in {"monitor", "all"}:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("command", choices=("generate", "judge", "report"))
+    parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading per view")
+    parser.add_argument("--concurrency", type=int, default=4)
+    args = parser.parse_args(argv)
+    destination = SMOKE_DESTINATION if args.smoke else DESTINATION
+    if args.command == "generate":
+        rows = generate(destination, args.smoke)
+        print(json.dumps({"episodes": len(rows), "destination": str(destination)}))
+    elif args.command == "judge":
         try:
-            await monitor(root, args.concurrency)
+            asyncio.run(judge(destination, args.smoke, args.concurrency))
         finally:
-            report(root, output)
-    elif args.phase == "report":
-        report(root, output)
+            report(destination, destination / "report" if args.smoke else REPORT, args.smoke)
+    else:
+        report(destination, destination / "report" if args.smoke else REPORT, args.smoke)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("phase", choices=("prepare", "monitor", "report", "all"))
-    parser.add_argument("--root", default=str(DEFAULT_ROOT))
-    parser.add_argument("--output", default=str(DEFAULT_REPORT))
-    parser.add_argument("--concurrency", type=int, default=4)
-    asyncio.run(main(parser.parse_args()))
+    main()

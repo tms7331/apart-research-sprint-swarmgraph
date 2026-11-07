@@ -1,4 +1,6 @@
-"""Validate stored evidence without importing private labels into observations."""
+"""Validate a generated episode's records without leaking private labels into observations.
+
+Judgments are checked as they are written (schema and cited events), in monitoring.py."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -184,43 +186,4 @@ def validate_run(directory: str | Path) -> dict:
     for i, action in enumerate(actions, 1):
         if not isinstance(action.get("role"), str) or not action["role"] or action.get("tool") not in {"read", "patch", "copy", "finish"} or not isinstance(action.get("arguments"), dict):
             errors.append(f"private action {i}: invalid role/tool/arguments")
-    by_id = {e["event_id"]: e for e in events if isinstance(e.get("event_id"), str)}
-    max_arrival = max((e["arrival_seq"] for e in events if type(e.get("arrival_seq")) is int), default=0)
-    monitors = lines("monitor_results.jsonl")
-    for i, monitor in enumerate(monitors, 1):
-        prefix = f"monitor {i}"
-        boundary = monitor.get("prefix_boundary")
-        if type(boundary) is not int or boundary < 0 or boundary > max_arrival:
-            errors.append(f"{prefix}: missing or invalid prefix boundary")
-        inputs = monitor.get("input_event_ids")
-        support = monitor.get("supporting_event_ids", [])
-        if not isinstance(inputs, list) or any(not isinstance(eid, str) for eid in inputs):
-            errors.append(f"{prefix}: input_event_ids must be a list of IDs")
-            inputs = []
-        if not isinstance(support, list) or any(not isinstance(eid, str) for eid in support):
-            errors.append(f"{prefix}: supporting_event_ids must be a list of IDs")
-            support = []
-        reading = monitor.get("reading_index")
-        if type(reading) is not int or reading < 0:
-            errors.append(f"{prefix}: missing or invalid reading_index")
-        status = monitor.get("result_status")
-        score = monitor.get("score")
-        if not set(support).issubset(inputs):
-            rejected_citation = isinstance(status, str) and bool(status) and status != "ok" and score is None
-            sink = warnings if rejected_citation else errors
-            sink.append(f"{prefix}: supporting events are outside input" + ("; rejected judgment remains a missing reading" if rejected_citation else ""))
-        for eid in inputs:
-            if eid not in by_id:
-                errors.append(f"{prefix}: unknown input event {eid}")
-            elif type(boundary) is int and type(by_id[eid].get("arrival_seq")) is int and by_id[eid]["arrival_seq"] > boundary:
-                errors.append(f"{prefix}: input event {eid} exceeds prefix")
-        if status is None:
-            errors.append(f"{prefix}: missing result status")
-        elif status == "ok":
-            if isinstance(score, bool) or not isinstance(score, (int, float)) or not 0 <= score <= 100:
-                errors.append(f"{prefix}: successful result needs a score between zero and 100")
-        elif score is not None:
-            errors.append(f"{prefix}: unsuccessful result must not have a score")
-    if not monitors:
-        warnings.append("no monitor results; evidence validation does not establish detection")
     return {"valid": not errors, "errors": errors, "warnings": warnings, "counts": counts}

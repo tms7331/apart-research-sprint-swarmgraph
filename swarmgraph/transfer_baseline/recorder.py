@@ -1,9 +1,21 @@
-"""Operator observations and evaluator ground truth have separate sinks."""
+"""Operator observations and evaluator ground truth have separate sinks.
+
+Timestamps are synthetic, so generation is deterministic: event N arrives at
+SYNTHETIC_START + N seconds, and a state change made after event N happens at
+N + 0.5 seconds. They order events; they are not wall-clock measurements.
+"""
 from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from .io import append_jsonl, utc_now
+from .io import append_jsonl
+
+SYNTHETIC_START = datetime(2026, 11, 1, tzinfo=timezone.utc)
+
+
+def synthetic_time(seconds: float) -> str:
+    return (SYNTHETIC_START + timedelta(seconds=seconds)).isoformat(timespec="microseconds")
 
 
 class Recorder:
@@ -22,10 +34,11 @@ class Recorder:
             source = "public_context"
         stream = agent_id or source
         self.sequence[stream] += 1
-        now = utc_now()
+        arrival = len(self.observations) + 1
+        now = synthetic_time(arrival)
         event = {"schema_version": 1, "run_id": self.run_id,
-                 "event_id": f"e{len(self.observations)+1:05d}",
-                 "arrival_seq": len(self.observations)+1, "received_at": now,
+                 "event_id": f"e{arrival:05d}",
+                 "arrival_seq": arrival, "received_at": now,
                  "source": source, "stream_id": stream, "source_seq": self.sequence[stream],
                  "source_time": now[:19] + "+00:00" if source == "shared_service" else None,
                  "source_time_precision": "second" if source == "shared_service" else "unknown",
@@ -40,7 +53,8 @@ class Recorder:
                    harmful: bool, generated: bool = False) -> dict:
         record = {"schema_version": 1, "run_id": self.run_id,
                   "transition_id": f"s{len(self.transitions)+1:05d}",
-                  "executed_at": utc_now(), "after_arrival_seq": len(self.observations),
+                  "executed_at": synthetic_time(len(self.observations) + .5),
+                  "after_arrival_seq": len(self.observations),
                   "key": key, "before": deepcopy(before), "after": deepcopy(after),
                   "actor": actor, "prohibited_outcome_present": harmful,
                   "generated": generated}

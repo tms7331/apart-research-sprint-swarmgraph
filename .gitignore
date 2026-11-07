@@ -12,7 +12,8 @@ experiments/graph_pilot/checkpoints/
 experiments/graph_pilot/STOP
 experiments/graph_pilot/STOP_SECURITY
 experiments/graph_pilot/runtime/
-experiments/transfer_baseline/
+logs/transfer_baseline/raw_calls/
+logs/transfer_baseline_smoke/
 .env
 specsold/
 specs/PAPER_NOTES.md
