@@ -1,0 +1,6 @@
+{
+  "model_calls_performed_by_export": 0,
+  "historical_stop_markers": {
+    "STOP_SECURITY": "{\n  \"reason\": \"Observed explicit CLI cybersecurity safety restriction; do not retry or rephrase rejected prompt. Supported account access/configuration is unresolved.\",\n  \"at\": \"2026-11-07T06:05:50.752957+00:00\",\n  \"call_id\": \"a_5cbe966b115d74a646b7e5c3\",\n  \"run_id\": \"r_dcc0ec6fb60d48caadf1\",\n  \"source\": \"calls/157ce3174191ced2afacbe0b88d7b1159537506caf06ddf0bf2261dd94dfe1c3/attempt_1/result.json\"\n}\n"
+  }
+}

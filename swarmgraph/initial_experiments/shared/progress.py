@@ -8,7 +8,7 @@ from .io import read_jsonl
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--root",default="experiments/graph_pilot")
+    p.add_argument("--root",default="logs/graph_pilot/raw")
     args=p.parse_args()
     root=Path(args.root)
     batches={}

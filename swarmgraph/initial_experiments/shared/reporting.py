@@ -28,6 +28,25 @@ CAVEATS = [
 
 
 def load_runs(root: Path) -> list[dict]:
+    root = Path(root)
+    protocol_path = root / "protocol.json"
+    if protocol_path.exists() and json.loads(protocol_path.read_text()).get("format") == "graph_pilot_snapshot_v1":
+        monitors = defaultdict(list)
+        for row in read_jsonl(root / "judgments.jsonl"):
+            monitors[row["run_id"]].append(row)
+        runs = []
+        for row in read_jsonl(root / "episodes.jsonl"):
+            run_id = row["manifest"]["run_id"]
+            if row["case_id"] != run_id:
+                raise ValueError("Snapshot case ID differs from manifest")
+            runs.append({"manifest": row["manifest"], "outcome": row["outcome"] or {},
+                         "validation": row["validation"], "final_boundary": row["event_count"],
+                         "monitors": monitors.pop(run_id, []),
+                         "directory": str(root / "episodes" / run_id)})
+        ids = [run["manifest"]["run_id"] for run in runs]
+        if len(ids) != len(set(ids)) or monitors:
+            raise ValueError("Duplicate snapshot runs or judgments with unknown run IDs")
+        return runs
     runs = []
     for path in sorted((root / "runs").glob("*/manifest.json")):
         manifest = json.loads(path.read_text())
@@ -297,6 +316,9 @@ def summarize_cell(experiment: dict, runs: list[dict], frozen: dict) -> dict:
 
 def usage_summary(root: Path) -> dict:
     """Count unique immutable attempt results, not duplicated judge references."""
+    snapshot = root / "usage_summary.json"
+    if snapshot.exists():
+        return json.loads(snapshot.read_text())
     attempts = {}
     for path in (root / "calls").glob("*/attempt_*/result.json"):
         record = json.loads(path.read_text())
@@ -431,7 +453,7 @@ def build_report(root: Path, output: Path, partition="evaluation", protocol="pil
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path("experiments/graph_pilot"))
+    parser.add_argument("--root", type=Path, default=Path("logs/graph_pilot"))
     parser.add_argument("--output", type=Path, default=Path("reports"))
     parser.add_argument("--partition", choices=("evaluation", "development"), default="evaluation")
     parser.add_argument("--protocol", default="pilot_v2")

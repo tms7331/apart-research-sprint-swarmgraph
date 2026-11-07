@@ -3,15 +3,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .DS_Store
-experiments/graph_pilot/runs/
-experiments/graph_pilot/calls/
-experiments/graph_pilot/*.jsonl
-experiments/graph_pilot/*.log
-experiments/graph_pilot/*.pid
-experiments/graph_pilot/checkpoints/
-experiments/graph_pilot/STOP
-experiments/graph_pilot/STOP_SECURITY
-experiments/graph_pilot/runtime/
+logs/graph_pilot/raw/
 logs/transfer_baseline/raw_calls/
 logs/transfer_baseline_smoke/
 .env

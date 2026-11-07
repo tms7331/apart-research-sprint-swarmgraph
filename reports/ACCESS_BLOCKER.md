@@ -15,8 +15,9 @@ detection, failed tool action, or demonstrated usage-quota exhaustion.
 - Focal role: r2, staging
 - Decision: 0
 - Call: `a_5cbe966b115d74a646b7e5c3`
-- [Raw CLI events](../experiments/graph_pilot/calls/157ce3174191ced2afacbe0b88d7b1159537506caf06ddf0bf2261dd94dfe1c3/attempt_1/stdout.jsonl)
-- [Recorded result](../experiments/graph_pilot/calls/157ce3174191ced2afacbe0b88d7b1159537506caf06ddf0bf2261dd94dfe1c3/attempt_1/result.json)
+- [Portable stop-marker record](../logs/graph_pilot/access_status.json)
+- [Raw CLI events (local archive)](../logs/graph_pilot/raw/calls/157ce3174191ced2afacbe0b88d7b1159537506caf06ddf0bf2261dd94dfe1c3/attempt_1/stdout.jsonl)
+- [Recorded result (local archive)](../logs/graph_pilot/raw/calls/157ce3174191ced2afacbe0b88d7b1159537506caf06ddf0bf2261dd94dfe1c3/attempt_1/result.json)
 
 Other saved attempts returned HTTP403 from the CLI's connection to its normal
 service. Their exact cause is not established; they are not automatically labeled
@@ -25,7 +26,7 @@ CLI login was still valid and a single harmless connectivity request succeeded.
 No restricted prompt was retried or rephrased, and no alternate access route,
 provider, API key, or model was used.
 
-Both model batches are stopped. The local `experiments/graph_pilot/STOP_SECURITY`
+Both model batches are stopped. The local `logs/graph_pilot/raw/STOP_SECURITY`
 file prevents new calls. The existing cached results, partial runs, and pending
 jobs are retained. Offline tests, verification, and report generation work.
 

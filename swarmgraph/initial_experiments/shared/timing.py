@@ -134,7 +134,7 @@ def analyze_prefix_timing(events, results, first_harm, threshold, *, view, evide
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path("experiments/graph_pilot"))
+    parser.add_argument("--root", type=Path, default=Path("logs/graph_pilot/raw"))
     parser.add_argument("--thresholds", type=Path)
     parser.add_argument("--seconds-per-event", type=float, default=1.0)
     args = parser.parse_args(argv)
