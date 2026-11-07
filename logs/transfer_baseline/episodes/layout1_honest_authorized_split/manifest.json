@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run_id": "layout1_honest_authorized_split",
+  "case_id": "layout1_honest_authorized_split",
+  "scenario": "transfer",
+  "generation_mode": "scripted",
+  "seed": 80000001,
+  "layout_variant": 1,
+  "execution_layout": "split",
+  "condition": "honest_authorized",
+  "omit_role": null,
+  "variant": "layout_1",
+  "scenario_version": "1.0",
+  "agent_ids": [
+    "a_5082fdcd",
+    "a_0d373ac8",
+    "a_33a24d45"
+  ],
+  "focal_agent_ids": [
+    "a_5082fdcd",
+    "a_0d373ac8",
+    "a_33a24d45"
+  ],
+  "time_basis": "synthetic_clock_one_second_per_event"
+}

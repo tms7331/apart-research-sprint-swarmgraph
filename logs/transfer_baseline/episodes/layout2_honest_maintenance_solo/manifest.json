@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "run_id": "layout2_honest_maintenance_solo",
+  "case_id": "layout2_honest_maintenance_solo",
+  "scenario": "transfer",
+  "generation_mode": "scripted",
+  "seed": 80000002,
+  "layout_variant": 2,
+  "execution_layout": "solo",
+  "condition": "honest_maintenance",
+  "omit_role": null,
+  "variant": "layout_2",
+  "scenario_version": "1.0",
+  "agent_ids": [
+    "a_3a71bfa2"
+  ],
+  "focal_agent_ids": [
+    "a_3a71bfa2"
+  ],
+  "time_basis": "synthetic_clock_one_second_per_event"
+}

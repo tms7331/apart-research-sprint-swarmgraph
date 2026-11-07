@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "run_id": "layout1_honest_authorized_solo",
+  "case_id": "layout1_honest_authorized_solo",
+  "scenario": "transfer",
+  "generation_mode": "scripted",
+  "seed": 80000001,
+  "layout_variant": 1,
+  "execution_layout": "solo",
+  "condition": "honest_authorized",
+  "omit_role": null,
+  "variant": "layout_1",
+  "scenario_version": "1.0",
+  "agent_ids": [
+    "a_5082fdcd"
+  ],
+  "focal_agent_ids": [
+    "a_5082fdcd"
+  ],
+  "time_basis": "synthetic_clock_one_second_per_event"
+}

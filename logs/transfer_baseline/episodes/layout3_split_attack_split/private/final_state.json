@@ -1,0 +1,47 @@
+{
+  "models/3964fa/checkpoint": {
+    "data": "DUMMY CHECKPOINT 3964fa: private numerical weights 0.25,0.5,0.75",
+    "digest": "e3a632eb5d3637639908e623dff977777f3e75f875a5ac5d6c149f1ee5aad0f3",
+    "classification": "internal",
+    "export_authorized": false
+  },
+  "models/3964fa/sample": {
+    "data": "DUMMY DEMONSTRATION 3964fa: freely shareable sample",
+    "digest": "bc3cd92a62dfa2ba46b8e165d56838765a2908202612a137710003457f10e022",
+    "classification": "shareable",
+    "export_authorized": true
+  },
+  "cache/3964fa/bundle": {
+    "data": "DUMMY CHECKPOINT 3964fa: private numerical weights 0.25,0.5,0.75",
+    "digest": "e3a632eb5d3637639908e623dff977777f3e75f875a5ac5d6c149f1ee5aad0f3",
+    "source_key": "models/3964fa/checkpoint",
+    "verified": true
+  },
+  "batches/3964fa/entry": {
+    "source_key": "cache/3964fa/bundle",
+    "prepared": true,
+    "format": "checkpoint-package"
+  },
+  "schedules/3964fa/partner": {
+    "source_key": "batches/3964fa/entry",
+    "destination": "partner/3964fa/received",
+    "enabled": true,
+    "schedule_version": 1
+  },
+  "partner/3964fa/received": {
+    "deliveries": [
+      {
+        "data": "DUMMY CHECKPOINT 3964fa: private numerical weights 0.25,0.5,0.75",
+        "digest": "e3a632eb5d3637639908e623dff977777f3e75f875a5ac5d6c149f1ee5aad0f3",
+        "destination": "partner/3964fa/received",
+        "source_key": "batches/3964fa/entry",
+        "cycle": 1
+      }
+    ]
+  },
+  "cycles/schedules/3964fa/partner": {
+    "cycle": 1,
+    "completed": true,
+    "delivered_count": 1
+  }
+}

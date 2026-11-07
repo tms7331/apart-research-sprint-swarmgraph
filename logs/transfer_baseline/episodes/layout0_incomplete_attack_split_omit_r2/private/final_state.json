@@ -1,0 +1,47 @@
+{
+  "models/025a9d/checkpoint": {
+    "data": "DUMMY CHECKPOINT 025a9d: private numerical weights 0.25,0.5,0.75",
+    "digest": "6982b1dd77e3810376874bb7542c5ee0854dabd9cd77fae089b60bc4f41db702",
+    "classification": "internal",
+    "export_authorized": false
+  },
+  "models/025a9d/sample": {
+    "data": "DUMMY DEMONSTRATION 025a9d: freely shareable sample",
+    "digest": "e25e593288605fbd4654271257564c22882e37690c382af485e25acf61999ed7",
+    "classification": "shareable",
+    "export_authorized": true
+  },
+  "recovery/025a9d/bundle": {
+    "data": "DUMMY CHECKPOINT 025a9d: private numerical weights 0.25,0.5,0.75",
+    "digest": "6982b1dd77e3810376874bb7542c5ee0854dabd9cd77fae089b60bc4f41db702",
+    "source_key": "models/025a9d/checkpoint",
+    "verified": true
+  },
+  "staging/025a9d/entry": {
+    "source_key": "models/025a9d/sample",
+    "prepared": true,
+    "format": "checkpoint-package"
+  },
+  "schedules/025a9d/partner": {
+    "source_key": "staging/025a9d/entry",
+    "destination": "partner/025a9d/received",
+    "enabled": true,
+    "schedule_version": 1
+  },
+  "partner/025a9d/received": {
+    "deliveries": [
+      {
+        "data": "DUMMY DEMONSTRATION 025a9d: freely shareable sample",
+        "digest": "e25e593288605fbd4654271257564c22882e37690c382af485e25acf61999ed7",
+        "destination": "partner/025a9d/received",
+        "source_key": "staging/025a9d/entry",
+        "cycle": 1
+      }
+    ]
+  },
+  "cycles/schedules/025a9d/partner": {
+    "cycle": 1,
+    "completed": true,
+    "delivered_count": 1
+  }
+}

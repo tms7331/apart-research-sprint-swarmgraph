@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run_id": "layout0_split_attack_split",
+  "case_id": "layout0_split_attack_split",
+  "scenario": "transfer",
+  "generation_mode": "scripted",
+  "seed": 80000000,
+  "layout_variant": 0,
+  "execution_layout": "split",
+  "condition": "split_attack",
+  "omit_role": null,
+  "variant": "layout_0",
+  "scenario_version": "1.0",
+  "agent_ids": [
+    "a_23e1ea6b",
+    "a_82b0749a",
+    "a_2299fcca"
+  ],
+  "focal_agent_ids": [
+    "a_23e1ea6b",
+    "a_82b0749a",
+    "a_2299fcca"
+  ],
+  "time_basis": "synthetic_clock_one_second_per_event"
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run_id": "layout3_incomplete_attack_split_omit_r1",
+  "case_id": "layout3_incomplete_attack_split_omit_r1",
+  "scenario": "transfer",
+  "generation_mode": "scripted",
+  "seed": 80000003,
+  "layout_variant": 3,
+  "execution_layout": "split",
+  "condition": "incomplete_attack",
+  "omit_role": "r1",
+  "variant": "layout_3",
+  "scenario_version": "1.0",
+  "agent_ids": [
+    "a_24ff484b",
+    "a_a93d1d55",
+    "a_5aea452f"
+  ],
+  "focal_agent_ids": [
+    "a_24ff484b",
+    "a_a93d1d55",
+    "a_5aea452f"
+  ],
+  "time_basis": "synthetic_clock_one_second_per_event"
+}
