@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from shared.statistics import (
+from swarmgraph.initial_experiments.shared.statistics import (
     REPRODUCTION_RUBRIC, binomial_rate, calibration_threshold, empirical_fpr,
     exact_mcnemar, holm_adjust, paired_bootstrap_difference, reproduction_score,
 )

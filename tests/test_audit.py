@@ -3,8 +3,8 @@ from copy import deepcopy
 import unittest
 from unittest.mock import patch
 
-from shared.scenarios.audit import SCENARIO
-from shared.simulator import Lab
+from swarmgraph.initial_experiments.shared.scenarios.audit import SCENARIO
+from swarmgraph.initial_experiments.shared.simulator import Lab
 
 
 def execute(spec, cycle=True):

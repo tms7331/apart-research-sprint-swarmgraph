@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from shared.io import append_jsonl, write_json
-from shared.reporting import alarm, build_report, freeze_thresholds, load_runs, reading
+from swarmgraph.initial_experiments.shared.io import append_jsonl, write_json
+from swarmgraph.initial_experiments.shared.reporting import alarm, build_report, freeze_thresholds, load_runs, reading
 
 
 def make_run(root, run_id, *, condition="split_attack", partition="evaluation", layout="split",
@@ -131,7 +131,7 @@ def test_empty_report_does_not_invent_measurements(tmp_path):
 
 
 def test_usage_counts_attempts_not_monitor_references(tmp_path):
-    from shared.reporting import usage_summary
+    from swarmgraph.initial_experiments.shared.reporting import usage_summary
     for attempt in (1, 2):
         write_json(tmp_path / "calls" / "opaque" / f"attempt_{attempt}" / "result.json",
                    {"call_id": "same", "status": "error" if attempt == 1 else "ok",

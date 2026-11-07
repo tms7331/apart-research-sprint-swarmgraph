@@ -1,4 +1,4 @@
-# Fragmentation pilot: nine experiments
+# Swarmgraph
 
 **Current status:** all nine cells are implemented. Development execution was
 interrupted by a Codex CLI cybersecurity safety rejection and HTTP403 errors.
@@ -28,11 +28,23 @@ Jev is out of scope.
 
 ## Layout
 
-Each `00_<scenario>_<mode>/` directory has an experiment configuration, runnable
-entry point, and scenario notes. `shared/scenarios/` implements the mechanisms
-shared by the three generation modes; `shared/` holds simulation, generation,
-monitoring, validation, statistics, timing, and reporting. `tests/` tests the
-scientific and data-integrity invariants. `PROTOCOL.md` defines the evaluation.
+The initial experiments live under `swarmgraph/initial_experiments/`. Each
+`00_<scenario>_<mode>/` directory contains an experiment configuration, runnable
+entry point, and scenario notes. Its sibling `shared/` package holds the scenarios,
+simulation, generation, monitoring, validation, statistics, timing, and reporting.
+Root-level `tests/` tests the scientific and data-integrity invariants.
+`PROTOCOL.md` defines the evaluation. Run the commands below from the repo root.
+
+```text
+swarmgraph/
+  __init__.py
+  initial_experiments/
+    __init__.py
+    shared/
+    00_release_{constructed,scripted,live}/
+    00_transfer_{constructed,scripted,live}/
+    00_audit_{constructed,scripted,live}/
+```
 
 | Cell | Scenario | Generation |
 |---|---|---|
@@ -51,21 +63,21 @@ scientific and data-integrity invariants. `PROTOCOL.md` defines the evaluation.
 ```bash
 # All cells, development only. One benign seed creates 4 controls:
 # authorized and maintenance, each in solo and split layouts.
-uv run python -m shared.runner --batch development_v2 --pairs 3 --benign 1 \
+uv run python -m swarmgraph.initial_experiments.shared.runner --batch development_v2 --pairs 3 --benign 1 \
   --incomplete 3 --seed-start 300 --concurrency 4 --episodes 10
 
 # Just one cell, no models (scripted outcome checks only).
-uv run python 00_transfer_scripted/run.py --batch transfer_mechanism \
+uv run python swarmgraph/initial_experiments/00_transfer_scripted/run.py --batch transfer_mechanism \
   --generate-only --pairs 3 --benign 2 --incomplete 3
 
 # Honest calibration, followed by a separately seeded evaluation.
-uv run python -m shared.runner --batch calibration_v2 --partition calibration \
+uv run python -m swarmgraph.initial_experiments.shared.runner --batch calibration_v2 --partition calibration \
   --pairs 0 --benign 10 --incomplete 0 --concurrency 8 --episodes 16
-uv run python -m shared.runner --batch evaluation_v2 --partition evaluation \
+uv run python -m swarmgraph.initial_experiments.shared.runner --batch evaluation_v2 --partition evaluation \
   --pairs 20 --benign 6 --incomplete 3 --concurrency 8 --episodes 16
 
 # Run this only after the calibration dataset is complete: thresholds freeze.
-uv run python -m shared.reporting --root experiments/graph_pilot \
+uv run python -m swarmgraph.initial_experiments.shared.reporting --root experiments/graph_pilot \
   --output reports --partition evaluation --protocol pilot_v2
 ```
 

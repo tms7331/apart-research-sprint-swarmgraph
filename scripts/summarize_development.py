@@ -4,14 +4,14 @@ import json
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from shared.catalog import EXPERIMENTS
-from shared.io import write_json,utc_now
-from shared.reporting import load_runs,reading,usage_summary
+from swarmgraph.initial_experiments.shared.catalog import EXPERIMENTS
+from swarmgraph.initial_experiments.shared.io import write_json,utc_now
+from swarmgraph.initial_experiments.shared.reporting import load_runs,reading,usage_summary
 
 root=Path("experiments/graph_pilot")
 active=[r for r in load_runs(root) if r["manifest"].get("protocol_version")=="pilot_v2"]
 if any(r["manifest"]["partition"]!="development" for r in active):
-    raise SystemExit("Calibration/evaluation now exists; use shared.reporting instead of this blocked-development snapshot generator.")
+    raise SystemExit("Calibration/evaluation now exists; use swarmgraph.initial_experiments.shared.reporting instead of this blocked-development snapshot generator.")
 runs=active
 
 def score_range(selected,view,evidence):

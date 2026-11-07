@@ -3,9 +3,9 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from shared.io import append_jsonl, write_json
-from shared.recorder import Recorder
-from shared.validation import validate_observations, validate_run
+from swarmgraph.initial_experiments.shared.io import append_jsonl, write_json
+from swarmgraph.initial_experiments.shared.recorder import Recorder
+from swarmgraph.initial_experiments.shared.validation import validate_observations, validate_run
 
 
 def observations():

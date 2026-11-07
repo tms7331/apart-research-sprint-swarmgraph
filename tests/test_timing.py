@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from shared.io import append_jsonl, write_json
-from shared.timing import analyze_prefix_timing, main
+from swarmgraph.initial_experiments.shared.io import append_jsonl, write_json
+from swarmgraph.initial_experiments.shared.timing import analyze_prefix_timing, main
 
 
 EVENTS = [{"arrival_seq": i} for i in range(1, 11)]

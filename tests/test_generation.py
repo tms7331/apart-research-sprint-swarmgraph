@@ -7,13 +7,13 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from shared.catalog import scenario_for
-from shared.contracts import Action, ServiceWrite
-from shared.generation import FleetScenario, generate_run, planned_actions, prepare_spec
-from shared.io import read_jsonl
-from shared.monitoring import select_events
-from shared.simulator import Lab, allowed
-from shared.validation import validate_observations
+from swarmgraph.initial_experiments.shared.catalog import scenario_for
+from swarmgraph.initial_experiments.shared.contracts import Action, ServiceWrite
+from swarmgraph.initial_experiments.shared.generation import FleetScenario, generate_run, planned_actions, prepare_spec
+from swarmgraph.initial_experiments.shared.io import read_jsonl
+from swarmgraph.initial_experiments.shared.monitoring import select_events
+from swarmgraph.initial_experiments.shared.simulator import Lab, allowed
+from swarmgraph.initial_experiments.shared.validation import validate_observations
 
 
 SCENARIOS = ("release", "transfer", "audit")

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "experiment_id": "E09",
+  "scenario": "audit",
+  "generation_mode": "live",
+  "folder": "swarmgraph/initial_experiments/00_audit_live",
+  "primary_model": "gpt-6.1-sol",
+  "reasoning_effort": "medium",
+  "protocol_version": "pilot_v2"
+}

@@ -1,7 +1,7 @@
 from copy import deepcopy
 import pytest
-from shared.scenarios.transfer import SCENARIO
-from shared.simulator import Lab
+from swarmgraph.initial_experiments.shared.scenarios.transfer import SCENARIO
+from swarmgraph.initial_experiments.shared.simulator import Lab
 
 
 @pytest.mark.parametrize("seed", range(12))

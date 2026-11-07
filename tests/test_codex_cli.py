@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from shared.codex_cli import CodexClient, DISABLED_FEATURES, _environment
+from swarmgraph.initial_experiments.shared.codex_cli import CodexClient, DISABLED_FEATURES, _environment
 
 SCHEMA = {"type": "object", "properties": {"ok": {"type": "boolean"}},
           "required": ["ok"], "additionalProperties": False}
@@ -46,7 +46,7 @@ class FakeClient(CodexClient):
 
 @pytest.fixture(autouse=True)
 def installed_cli(monkeypatch):
-    monkeypatch.setattr("shared.codex_cli.shutil.which", lambda _: "/fake/codex")
+    monkeypatch.setattr("swarmgraph.initial_experiments.shared.codex_cli.shutil.which", lambda _: "/fake/codex")
 
 
 def test_success_is_audited_and_cached(tmp_path):

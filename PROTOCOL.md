@@ -119,7 +119,7 @@ intervals receive conservative Bonferroni-Wilson bounds when applicable. Any
 formal multiple-cell significance results use Holm correction. Scores are not
 treated as calibrated probabilities.
 
-The1–10 reproduction grade follows the declared rubric in shared/statistics.py.
+The1–10 reproduction grade follows the declared rubric in swarmgraph/initial_experiments/shared/statistics.py.
 It measures evidence for Step1, not quality of software engineering. A rigorous
 negative finding and a cell that never executed are different statuses. Missing
 comparisons are ungraded rather than assigned invented scores.
