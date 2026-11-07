@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-07T16:43:29.418057+00:00",
+  "operator_action": "drain_before_concurrency_change",
+  "operator_token": "0efb7dacf86042a785de577e99391e7d",
+  "from_concurrency": 4,
+  "to_concurrency": 8,
+  "reason": "Reduce wall-clock time; no model, prompt, dataset, or threshold change.",
+  "no_platform_rejection": true,
+  "successful_calls_before_pause": 1718,
+  "resumed_at": "2026-11-07T16:44:26.329797+00:00",
+  "successful_calls_after_drain": 1722,
+  "explanation": "Controlled operator checkpoint. The generic stop traceback in run.log is not a CLI access failure. Queued not_run readings will be filled on resume."
+}
