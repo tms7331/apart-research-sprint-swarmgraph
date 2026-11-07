@@ -1,6 +1,6 @@
 # Implementation contract
 
-The primary user authorized all nine cells through GRAPH_PLAN step 1. Use only
+The primary user authorized all nine cells through [GRAPH_PLAN](../../specs/GRAPH_PLAN.md) step 1. Use only
 ChatGPT-authenticated Codex CLI, model gpt-6.1-sol, medium reasoning. No Jev.
 This file records the interface between parallel implementation workers.
 

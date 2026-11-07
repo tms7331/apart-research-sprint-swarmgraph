@@ -1,19 +1,21 @@
-# Swarmgraph
+# Swarmgraph initial experiments
 
 **Current status:** all nine cells are implemented. Development execution was
 interrupted by a Codex CLI cybersecurity safety rejection and HTTP403 errors.
 Calibration, held-out evaluation, and final reproduction grades are not complete.
-See [the current results](reports/RESULTS.md) and
-[the access blocker](reports/ACCESS_BLOCKER.md). A local `STOP_SECURITY` marker
+See [the current results](../../reports/RESULTS.md) and
+[the access blocker](../../reports/ACCESS_BLOCKER.md). A local `STOP_SECURITY` marker
 prevents further model calls while supported access is unresolved.
 
-A Python experiment harness for GRAPH_PLAN steps 0–1. Three local shared-service
+A Python experiment harness for [GRAPH_PLAN](../../specs/GRAPH_PLAN.md) steps 0–1. Three local shared-service
 scenarios (release, transfer, audit) are crossed with constructed histories,
 scripted execution, and live LLM agents. Every modeled file and external
 destination is dummy local state. No actual model weights or external systems
 are accessed.
 
 ## Setup
+
+Run all commands from the repository root, two levels above this directory.
 
 ```bash
 uv sync
@@ -28,12 +30,14 @@ Jev is out of scope.
 
 ## Layout
 
+[specs/](../../specs/) contains the project idea, execution plan, and reference papers.
+
 The initial experiments live under `swarmgraph/initial_experiments/`. Each
 `00_<scenario>_<mode>/` directory contains an experiment configuration, runnable
 entry point, and scenario notes. Its sibling `shared/` package holds the scenarios,
 simulation, generation, monitoring, validation, statistics, timing, and reporting.
 Root-level `tests/` tests the scientific and data-integrity invariants.
-`PROTOCOL.md` defines the evaluation. Run the commands below from the repo root.
+[PROTOCOL.md](PROTOCOL.md) defines the evaluation.
 
 ```text
 swarmgraph/
@@ -126,4 +130,4 @@ rendered prompts. Raw CLI artifacts are checked for unexpected tool use.
 Credentials are neither copied nor logged.
 
 The `pilot_v1` development artifacts document early design problems and are
-excluded from the active `pilot_v2` results. See `DEVELOPMENT_LOG.md`.
+excluded from the active `pilot_v2` results. See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md).

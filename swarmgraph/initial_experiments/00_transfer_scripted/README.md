@@ -10,4 +10,4 @@ Run from the project root:
 uv run python swarmgraph/initial_experiments/00_transfer_scripted/run.py --batch e05_development --pairs 3 --benign 1 --incomplete 3
 ```
 
-See root README and PROTOCOL.md for calibration, held-out evaluation, result storage, and limitations. Constructed stories require independent replay validation; scripted/live outcomes come from actual state transitions.
+See the [experiment README](../README.md) and [protocol](../PROTOCOL.md) for calibration, held-out evaluation, result storage, and limitations. Constructed stories require independent replay validation; scripted/live outcomes come from actual state transitions.

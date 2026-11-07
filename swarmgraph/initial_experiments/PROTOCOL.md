@@ -2,7 +2,7 @@
 
 ## Scope and model
 
-All nine cells in GRAPH_PLAN §0.4, through Step 1. Existing ChatGPT-authenticated
+All nine cells in [GRAPH_PLAN](../../specs/GRAPH_PLAN.md) §0.4, through Step 1. Existing ChatGPT-authenticated
 Codex CLI only; `gpt-6.1-sol`, medium effort, for both acting and judging. No Jev,
 learned retriever, graph detector, missing-log sweep, or real-world side effects.
 This is a conceptual reproduction in a simplified new lab, not a numerical

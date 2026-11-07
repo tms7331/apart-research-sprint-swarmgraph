@@ -10,7 +10,8 @@ from .io import digest, utc_now, write_json
 def freeze(output:Path):
     shared_directory=Path(__file__).resolve().parent
     repository_root=shared_directory.parents[2]
-    paths=[repository_root/name for name in ("PROTOCOL.md","uv.lock","pyproject.toml")]
+    paths=[shared_directory.parent/"PROTOCOL.md"]
+    paths+=[repository_root/name for name in ("uv.lock","pyproject.toml")]
     paths+=list((shared_directory/"scenarios").glob("*.py"))
     paths+=[shared_directory/name for name in ("contracts.py","recorder.py","simulator.py","generation.py","monitoring.py","schemas.py","codex_cli.py","runner.py")]
     files={p.relative_to(repository_root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(paths)}
