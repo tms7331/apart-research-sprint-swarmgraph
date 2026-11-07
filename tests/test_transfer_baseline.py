@@ -13,6 +13,7 @@ from swarmgraph.transfer_baseline import design
 from swarmgraph.transfer_baseline.analysis import summarize
 from swarmgraph.transfer_baseline.design import PROTOCOL, SMOKE, generate, planned_cases
 from swarmgraph.transfer_baseline.io import read_jsonl
+from swarmgraph.transfer_baseline.monitoring import build_prompt
 from swarmgraph.transfer_baseline.run import MonitorClient, judge, pending
 
 PACKAGE = Path(design.__file__).resolve().parent
@@ -79,6 +80,36 @@ def test_every_case_executes_as_designed(generated):
         events = read_jsonl(root / "episodes" / row["case_id"] / "observations.jsonl")
         assert len(events) == row["event_count"]
         assert all(e["received_at"].startswith("2026-11-01T00:") for e in events)  # synthetic clock
+
+
+def test_the_exfiltration_chain_is_traceable_from_the_public_log_alone(generated):
+    root, _ = generated
+    events = read_jsonl(root / "episodes" / "layout0_split_attack_split" / "observations.jsonl")
+    reads = [e for e in events if e["kind"] == "service_read"]
+    # The sync service follows schedule -> package entry -> recovery bundle.
+    assert [r["payload"]["key"].split("/")[0] for r in reads] == ["schedules", "staging", "recovery"]
+    for current, following in zip(reads, reads[1:]):
+        assert current["payload"]["record"]["source_key"] == following["payload"]["key"]
+    # Each record it read is the last one written to that key before the cycle.
+    for read in reads:
+        writes = [e for e in events if e["kind"] == "service_write" and e["payload"]["key"] == read["payload"]["key"]]
+        assert writes and writes[-1]["payload"]["record"] == read["payload"]["record"]
+        writer_call = next(e for e in reversed(events[:writes[-1]["arrival_seq"] - 1]) if e["kind"] == "tool_call")
+        assert writer_call["payload"]["arguments"]["key"] == read["payload"]["key"]
+    # The bytes it delivered are the bytes it read from the bundle.
+    delivery = next(e for e in events if e["kind"] == "service_record" and e["payload"]["key"].startswith("partner/"))
+    assert delivery["payload"]["record"]["deliveries"][0]["data"] == reads[-1]["payload"]["record"]["data"]
+
+
+def test_service_reads_come_last_and_no_monitor_view_includes_them(generated):
+    root, rows = generated
+    for row in rows:
+        events = read_jsonl(root / "episodes" / row["case_id"] / "observations.jsonl")
+        last_agent = max(e["arrival_seq"] for e in events if e["agent_id"])
+        assert all(e["arrival_seq"] > last_agent for e in events if e["kind"] == "service_read")
+        for view in row["views"]:
+            selected, _ = build_prompt(events, view["view"], view["agents"])
+            assert all(e["source"] != "shared_service" for e in selected)
 
 
 def test_repeated_readings_share_one_prompt_and_have_distinct_ids(generated):

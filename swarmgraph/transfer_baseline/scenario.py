@@ -89,6 +89,18 @@ class TransferScenario:
              "claimed_harm": delivers_private, "omitted_role": omitted},
         )
 
+    def cycle_reads(self, spec: EpisodeSpec, state: dict) -> list[str]:
+        """The records tick() follows, in order: the schedule, its package entry, and that entry's source object."""
+        k = spec.private["keys"]
+        reads = [k["job"]]
+        entry_key = state[k["job"]].get("source_key")
+        if entry_key in state:
+            reads.append(entry_key)
+            source_key = state[entry_key].get("source_key")
+            if source_key in state:
+                reads.append(source_key)
+        return reads
+
     def tick(self, spec: EpisodeSpec, state: dict) -> list[ServiceWrite]:
         k = spec.private["keys"]
         job = state[k["job"]]

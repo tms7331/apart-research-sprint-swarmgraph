@@ -80,7 +80,7 @@ Full run in `logs/transfer_baseline/`, smoke run in `logs/transfer_baseline_smok
 |---|---|
 | `protocol.json` | the design these episodes were generated from |
 | `episodes.jsonl` | one row per episode: case, agents, outcome, and each judged view with its prompt hash |
-| `episodes/<case_id>/observations.jsonl` | everything a monitor can see: policy, tasks, tool calls, results, messages, service records |
+| `episodes/<case_id>/observations.jsonl` | the operator's public log: policy, tasks, each agent's tool calls, results and messages, plus shared-service events. Service events are writes (writer not recorded), the sync service's reads of the records it follows, and its outputs. Monitors see only the policy and their agents' own events |
 | `episodes/<case_id>/private/` | ground truth no monitor sees: plan, actions, state changes, outcome, final state |
 | `judgments.jsonl` | one row per judge reading: case, view, reading number, prompt hash, score, assessment, explanation, cited events, tokens, latency |
 | `raw_calls/` | the Codex CLI's raw archive per call, plus stop markers. Local only (gitignored) |

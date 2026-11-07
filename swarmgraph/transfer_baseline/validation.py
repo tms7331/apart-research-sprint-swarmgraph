@@ -12,7 +12,7 @@ from .io import read_jsonl
 
 REQUIRED = {"schema_version", "run_id", "event_id", "arrival_seq", "received_at", "source", "stream_id",
             "source_seq", "source_time", "source_time_precision", "kind", "agent_id", "task_id", "call_id", "payload"}
-KINDS = {"policy_published", "task_assigned", "tool_call", "tool_result", "assistant_message", "service_write", "service_record"}
+KINDS = {"policy_published", "task_assigned", "tool_call", "tool_result", "assistant_message", "service_write", "service_read", "service_record"}
 FORBIDDEN = {"malicious", "attack_step", "true_author", "hidden_plan", "hidden_plans", "hidden_objective", "private_plan", "private_plans",
              "colluding_agent_ids", "prohibited_outcome", "verification_status", "scenario_condition", "private"}
 

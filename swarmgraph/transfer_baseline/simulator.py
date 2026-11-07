@@ -73,6 +73,10 @@ class Lab:
     def run_cycle(self) -> None:
         if self.cycled:
             raise RuntimeError("standing cycle already completed")
+        # The standing service's own log of the records it follows, before it acts.
+        # Shared-service events: no monitor view includes them.
+        for key in self.scenario.cycle_reads(self.spec, self.state):
+            self.recorder.emit("service_read", {"key": key, "record": deepcopy(self.state[key])})
         writes = self.scenario.tick(self.spec, deepcopy(self.state))
         preview = deepcopy(self.state)
         for write in writes:
