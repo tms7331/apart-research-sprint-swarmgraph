@@ -20,3 +20,4 @@ specs/PAPER_NOTES.md
 paper/build/
 logs/scaling/raw_calls/
 logs/scaling_smoke/
+logs/scaling/episodes/

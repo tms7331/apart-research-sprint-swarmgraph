@@ -21,7 +21,7 @@ from swarmgraph.transfer_baseline.monitoring import judge_one
 from swarmgraph.transfer_baseline.run import MonitorClient, pending
 
 from . import explorer, investigator
-from .design import DESTINATION, INVESTIGATOR_REPORT, REPORT, SMOKE_DESTINATION, generate, protocol
+from .design import DESTINATION, EXPLORER_REPORT, INVESTIGATOR_REPORT, REPORT, SMOKE_DESTINATION, generate, protocol
 
 
 def _stopped(client) -> None:
@@ -84,6 +84,8 @@ def reports(destination: Path, smoke: bool) -> None:
     report(destination, destination / "report_all_logs" if smoke else REPORT, smoke)
     investigator.report(destination, destination / "report_investigator" if smoke else INVESTIGATOR_REPORT,
                         investigator.SMOKE_RUNS if smoke else investigator.RUNS)
+    if (destination / explorer.LOG).exists():
+        explorer.report(destination, destination / "report_explorer" if smoke else EXPLORER_REPORT)
 
 
 def main(argv=None) -> None:

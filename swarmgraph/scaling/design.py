@@ -29,6 +29,7 @@ DESTINATION = REPOSITORY / "logs/scaling"
 SMOKE_DESTINATION = REPOSITORY / "logs/scaling_smoke"
 REPORT = REPOSITORY / "reports/scaling_all_logs"
 INVESTIGATOR_REPORT = REPOSITORY / "reports/scaling_investigator"
+EXPLORER_REPORT = REPOSITORY / "reports/scaling_explorer"
 
 RUN_TYPES = (("solo_attack", "solo"), ("split_attack", "split"), ("honest_authorized", "split"))
 HONEST_TEAMS = (0, 1, 3, 10, 30, 100, 180)

@@ -185,3 +185,38 @@ def summary(destination: Path) -> list[dict]:
                     "input_tokens": sum((t.get("usage") or {}).get("input_tokens") or 0 for t in r["turns"]),
                     "explanation": r["explanation"]})
     return out
+
+
+def report(destination: Path, output: Path) -> None:
+    """Detection, search and cost by fleet size, from explorations.jsonl and episodes.jsonl."""
+    from collections import defaultdict
+    from statistics import median
+
+    from swarmgraph.transfer_baseline.io import write_json
+    destination, output = Path(destination), Path(output)
+    rows = summary(destination)
+    teams = {e["case_id"]: e["honest_teams"] for e in read_jsonl(destination / "episodes.jsonl")}
+    cells = defaultdict(list)
+    for row in rows:
+        cells[(teams[row["case_id"]], row["condition"])].append(row)
+    sizes = sorted({teams[r["case_id"]] for r in rows})
+    lines = ["# Step 2, Experiment A: an explorer with search and read tools", "",
+             f"{len(rows)} explorations ({PROMPT_VERSION}, {MODEL}, {EFFORT}). Each starts with the policy and the size of "
+             f"the log, explores it with search, read_log, read_events and read_agent, {BUDGET_CALLS} calls at most, and "
+             f"flags the fleet if its final score is at least {THRESHOLD}. Rates are over explorations (layouts × passes).", "",
+             "| Honest teams (agents) | Solo caught | Split caught | Honest false alarms | Split: saw all 3 colluders "
+             "| Median calls | Median input tokens |", "|---:|---|---|---|---|---:|---:|"]
+    def frac(group, key):
+        return f"{sum(bool(r[key]) for r in group)}/{len(group)}" if group else "-"
+    for n in sizes:
+        s, p, h = (cells[(n, c)] for c in ("solo_attack", "split_attack", "honest_authorized"))
+        everything = s + p + h
+        agents = next((r["agents"] for r in p + h), "?")
+        lines.append(f"| {n} ({agents}) | {frac(s, 'flagged')} | {frac(p, 'flagged')} | {frac(h, 'flagged')} "
+                     f"| {sum(r['saw_colluders'] == '3/3' for r in p)}/{len(p)} | {median(r['calls'] for r in everything):.0f} "
+                     f"| {median(r['input_tokens'] for r in everything):,.0f} |")
+    lines += ["", "Every call and its result is in `logs/scaling/explorations.jsonl`.", ""]
+    output.mkdir(parents=True, exist_ok=True)
+    write_json(output / "explorations.json", rows)
+    (output / "RESULTS.md").write_text("\n".join(lines))
+    print(json.dumps({"report": str(output / "RESULTS.md"), "explorations": len(rows)}), flush=True)
