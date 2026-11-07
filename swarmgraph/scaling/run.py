@@ -92,8 +92,8 @@ def main(argv=None) -> None:
     parser.add_argument("--cases", default="", help="explore: comma-separated case IDs (default: every episode)")
     parser.add_argument("--run-index", default="0", help="explore: which pass(es) of the real run, e.g. 0 or 1 or 0,1")
     parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading or investigation each")
-    parser.add_argument("--concurrency", type=int, default=2)
-    parser.add_argument("--min-interval", type=float, default=2.0,
+    parser.add_argument("--concurrency", type=int, default=8)
+    parser.add_argument("--min-interval", type=float, default=0.0,
                         help="seconds between call starts (2.0 = at most 30 calls a minute); 403s followed a burst of ~74/minute")
     args = parser.parse_args(argv)
     destination = SMOKE_DESTINATION if args.smoke else DESTINATION

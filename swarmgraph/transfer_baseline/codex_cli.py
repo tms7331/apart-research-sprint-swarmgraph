@@ -264,7 +264,8 @@ class CodexClient:
                 # The retry budget is per logical call, even across resumptions.
                 if start_attempt > self.retries + 1 and previous:
                     return json.loads(previous[-1].read_text())
-                for attempt in range(start_attempt, self.retries + 2):
+                # Attempts cut off before saving a result don't use up the budget: always try at least once.
+                for attempt in range(start_attempt, max(self.retries + 2, start_attempt + 1)):
                     record, retry = await self._attempt(call_dir, attempt, call_id, prompt, schema, purpose, inputs, delay)
                     if not retry:
                         return record
