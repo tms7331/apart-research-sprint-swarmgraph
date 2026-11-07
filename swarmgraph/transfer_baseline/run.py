@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 import random
+import time
 
 from .codex_cli import CodexClient
 from .design import DESTINATION, REPORT, SMOKE_DESTINATION, generate, protocol
@@ -30,12 +32,32 @@ class MonitorClient:
 
     Any access restriction, authentication failure or usage limit writes
     STOP_ACCESS and stops queued calls. No alternate model, route, or revised
-    prompt is used.
+    prompt is used. ``min_interval`` (seconds) spaces out the starts of calls,
+    so a run can't burst: 2.0 caps it at 30 calls a minute.
     """
-    def __init__(self, root: Path, concurrency=4):
+    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0):
         self.root = Path(root)
         self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1)
         self.semaphore = asyncio.Semaphore(concurrency)
+        self.min_interval = min_interval
+        self._pace = asyncio.Lock()
+        self._last_start = 0.0
+
+    def _cached(self, call_id) -> bool:
+        """Whether this call already has a successful saved attempt (the client replays it with no request)."""
+        if not call_id:
+            return False
+        folder = self.root / "calls" / hashlib.sha256(call_id.encode()).hexdigest()
+        return any(json.loads(p.read_text()).get("status") == "ok" for p in folder.glob("attempt_*/result.json"))
+
+    async def _paced(self, call_id=None):
+        if self.min_interval <= 0 or self._cached(call_id):
+            return
+        async with self._pace:
+            delay = self._last_start + self.min_interval - time.monotonic()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            self._last_start = time.monotonic()
 
     @property
     def stopped(self):
@@ -45,6 +67,9 @@ class MonitorClient:
         if purpose != "monitor":
             raise ValueError("This baseline permits monitor calls only")
         async with self.semaphore:
+            if self.stopped:
+                return {"status": "not_run", "call_id": call_id, "error_kind": "study_stopped"}
+            await self._paced(call_id)
             if self.stopped:
                 return {"status": "not_run", "call_id": call_id, "error_kind": "study_stopped"}
             result = await self.client.ask(prompt, schema, purpose, call_id)
