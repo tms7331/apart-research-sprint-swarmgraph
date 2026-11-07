@@ -15,5 +15,12 @@ testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
+    "pypdf==6.19.0",
     "pytest>=9.2.0",
 ]
+paper = [
+    "typst==0.15.0",
+]
+
+[tool.uv]
+default-groups = ["dev", "paper"]  # paper: bin/build-paper's Typst compiler

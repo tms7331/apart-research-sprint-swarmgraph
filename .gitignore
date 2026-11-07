@@ -17,3 +17,4 @@ logs/transfer_baseline_smoke/
 .env
 specsold/
 specs/PAPER_NOTES.md
+paper/build/

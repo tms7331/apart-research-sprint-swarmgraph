@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Builds the paper (paper/README.md): fills in paper/paper.typ's numbers, tables and figures from the logs,
+# compiles it and checks it against the sprint's rules.
+#   bin/build-paper           # the draft: paper/build/DRAFT-paper.pdf, and a PNG of each page
+#   bin/build-paper --final   # the submission: paper/swarmgraph.pdf, only when every check passes
+#   bin/build-paper watch     # the draft now, recompiled on each save and rebuilt each time HEAD moves
+#   bin/build-paper -h
+cd "$(dirname "${BASH_SOURCE[0]}")/.." && exec uv run -q python -m paper "$@"
