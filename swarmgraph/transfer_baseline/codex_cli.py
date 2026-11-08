@@ -93,7 +93,7 @@ def _environment() -> dict[str, str]:
 
 class CodexClient:
     def __init__(self, root: Path, concurrency: int = 4, timeout: float = 180,
-                 retries: int = 2):
+                 retries: int = 2, retry_forbidden: bool = False):
         if concurrency < 1 or timeout <= 0 or not 0 <= retries <= 2:
             raise ValueError("concurrency/timeout must be positive; retries must be 0..2")
         self.root = Path(root).resolve()
@@ -101,8 +101,23 @@ class CodexClient:
         (self.root / "calls").mkdir(exist_ok=True)
         self.timeout = timeout
         self.retries = retries
+        self.retry_forbidden = retry_forbidden
+        self._forbidden_until = 0.0
         self._semaphore = asyncio.Semaphore(concurrency)
         self._locks: dict[str, asyncio.Lock] = {}
+
+    def _retryable_forbidden(self, record: dict) -> bool:
+        diagnostics = record.get("error") or ""
+        return (self.retry_forbidden and record.get("error_kind") == "access_forbidden"
+                and record.get("status") != "usage_limit"
+                and not any(pattern.search(diagnostics) for pattern in (_SAFETY, _AUTH, _USAGE)))
+
+    async def _access_cooldown(self):
+        # Share the cooldown across all workers, including queued new calls.
+        while self._forbidden_until > time.monotonic():
+            if any(self.root.glob("STOP*")):
+                return
+            await asyncio.sleep(min(60.0, self._forbidden_until - time.monotonic()))
 
     @asynccontextmanager
     async def _disk_lock(self, directory: Path):
@@ -255,21 +270,33 @@ class CodexClient:
                     return cached
             if previous:
                 last = json.loads(previous[-1].read_text())
-                if not last.get("retryable", False):
+                if last.get("error_kind") == "access_forbidden" and not self._retryable_forbidden(last):
+                    return last
+                if not last.get("retryable", False) and not self._retryable_forbidden(last):
                     return last
             async with self._semaphore:
                 delay = time.monotonic() - queued
                 existing = [int(p.name.split("_")[-1]) for p in call_dir.glob("attempt_*") if p.is_dir()]
                 start_attempt = max(existing, default=0) + 1
-                # The retry budget is per logical call, even across resumptions.
-                if start_attempt > self.retries + 1 and previous:
+                # Generic 403 cooldowns do not consume the ordinary retry budget.
+                # Existing attempts remain immutable, including pre-policy failures.
+                used = sum(not self._retryable_forbidden(json.loads(path.read_text())) for path in previous)
+                if used >= self.retries + 1 and previous:
                     return json.loads(previous[-1].read_text())
                 # Attempts cut off before saving a result don't use up the budget: always try at least once.
-                for attempt in range(start_attempt, max(self.retries + 2, start_attempt + 1)):
+                attempt = start_attempt
+                while True:
+                    await self._access_cooldown()
                     record, retry = await self._attempt(call_dir, attempt, call_id, prompt, schema, purpose, inputs, delay)
-                    if not retry:
+                    attempt += 1
+                    if self._retryable_forbidden(record):
+                        self._forbidden_until = time.monotonic() + 60.0
+                        print(json.dumps({"at": _utc(), "event": "http_403_retry", "call_id": call_id,
+                                          "attempt": record["attempts"], "cooldown_seconds": 60}), flush=True)
+                        continue
+                    used += 1
+                    if not retry or used >= self.retries + 1:
                         return record
-                return record
 
     async def _attempt(self, call_dir: Path, attempt: int, call_id: str, prompt: str,
                        schema: dict, purpose: str, inputs: dict, delay: float) -> tuple[dict, bool]:
@@ -295,6 +322,8 @@ class CodexClient:
                 text = (self.root / "STOP").read_text()
                 record.update(status="usage_limit" if _USAGE.search(text) else "error",
                               error_kind="stop_file", error="STOP exists; no CLI call launched")
+            elif any(self.root.glob("STOP*")):
+                record.update(error_kind="stop_file", error="Stop marker exists; no CLI call launched")
             else:
                 executable = shutil.which("codex")
                 if not executable:
@@ -323,13 +352,6 @@ class CodexClient:
                                     "error_kind": kind, "output_path": record["output_path"], "reason": error}))
                             except FileExistsError:
                                 pass
-                        elif _FORBIDDEN.search(errors):
-                            kind, error = "access_forbidden", errors.strip()
-                        elif timed_out:
-                            kind, error = "timeout", "CLI exceeded hard subprocess timeout"
-                            retry = True
-                        elif kind == "unexpected_tool_use" or kind == "unexpected_event":
-                            pass
                         elif _USAGE.search(errors):
                             record["status"] = "usage_limit"
                             kind, error = "usage_limit", "CLI reported a usage limit; inspect raw stderr/events"
@@ -339,6 +361,14 @@ class CodexClient:
                                 pass
                         elif _AUTH.search(errors):
                             kind, error = "authentication", "CLI authentication failed; inspect raw stderr/events"
+                        elif _FORBIDDEN.search(errors):
+                            kind, error = "access_forbidden", errors.strip()
+                            retry = self.retry_forbidden
+                        elif timed_out:
+                            kind, error = "timeout", "CLI exceeded hard subprocess timeout"
+                            retry = True
+                        elif kind == "unexpected_tool_use" or kind == "unexpected_event":
+                            pass
                         elif rc != 0:
                             kind, error = "cli_failure", f"CLI exited {rc}: {error or 'see stderr'}"
                             retry = bool(_TRANSIENT.search(errors))

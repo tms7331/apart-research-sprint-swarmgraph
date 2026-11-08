@@ -30,19 +30,23 @@ TERMINAL = {"access_forbidden", "safety_restriction", "authentication", "usage_l
 class MonitorClient:
     """Only review records; never request actor behavior.
 
-    Any access restriction, authentication failure or usage limit writes
-    STOP_ACCESS and stops queued calls. ``min_interval`` (seconds) spaces out
-    the starts of calls, so a run can't burst: 2.0 caps it at 30 calls a minute.
+    By default, access restrictions, authentication failures and usage limits
+    write STOP_ACCESS and stop queued calls. With ``retry_forbidden``, generic
+    403s instead wait one minute and retry the identical Codex request. Explicit
+    safety, auth and usage failures still stop. ``min_interval`` (seconds) spaces
+    out the starts of calls, so a run can't burst: 2.0 caps it at 30 calls a minute.
 
     ``fallback`` (an OpenRouterClient; quick runs only, never full runs): on the
     first access refusal (HTTP 403) the run switches to OpenRouter with the same
     model, notes it in FALLBACK_OPENROUTER, and stays there. A safety rejection
     never falls back. Every result records the route that answered it.
     """
-    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0, fallback=None):
+    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0,
+                 fallback=None, retry_forbidden: bool = False):
         self.root = Path(root)
         self.fallback, self.on_fallback = fallback, False
-        self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1)
+        self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1,
+                                  retry_forbidden=retry_forbidden)
         self.semaphore = asyncio.Semaphore(concurrency)
         self.min_interval = min_interval
         self._pace = asyncio.Lock()
@@ -66,7 +70,7 @@ class MonitorClient:
 
     @property
     def stopped(self):
-        return any((self.root / name).exists() for name in STOP_NAMES)
+        return any(self.root.glob("STOP*"))
 
     async def ask(self, prompt, schema, purpose, call_id=None):
         if purpose != "monitor":
