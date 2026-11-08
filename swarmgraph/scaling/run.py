@@ -115,14 +115,15 @@ def fallback_client(root: Path, enabled: bool, concurrency: int):
 
 
 async def explore_graph(cases: list[str], plain: bool, concurrency: int = 8, fallback: bool = False,
-                        curve: bool = False, run_indices: tuple = (0,)) -> None:
+                        curve: bool = False, run_indices: tuple = (0,), retry_forbidden: bool = False) -> None:
     """Experiment B: explore the sandbox (or, with curve, the curve's) fleets with graph tools, or A's with plain."""
     from .design import GRAPH_CURVE_DESTINATION, GRAPH_DESTINATION
     GRAPH_DESTINATION = GRAPH_CURVE_DESTINATION if curve else GRAPH_DESTINATION
     mode = explorer.LOG_MODE if plain else explorer.GRAPH_MODE
     episodes = [e for e in read_jsonl(GRAPH_DESTINATION / "episodes.jsonl") if not cases or e["case_id"] in cases]
     client = MonitorClient(GRAPH_DESTINATION / "raw_calls", concurrency,
-                           fallback=fallback_client(GRAPH_DESTINATION / "raw_calls", fallback, concurrency))
+                           fallback=fallback_client(GRAPH_DESTINATION / "raw_calls", fallback, concurrency),
+                           retry_forbidden=retry_forbidden)
     _stopped(client)
     await explorer.run_explorations(client, GRAPH_DESTINATION, episodes, list(run_indices), mode)
     rows = {r["case_id"]: r for r in read_jsonl(GRAPH_DESTINATION / mode.log) if r.get("status") == "ok"}
@@ -148,7 +149,7 @@ def main(argv=None) -> None:
     parser.add_argument("--cases", default="", help="explore: comma-separated case IDs (default: every episode)")
     parser.add_argument("--run-index", default="0", help="explore: which pass(es) of the real run, e.g. 0 or 1 or 0,1")
     parser.add_argument("--retry-forbidden", action="store_true",
-                        help="explore: retry generic HTTP 403s after a shared 60-second cooldown; explicit safety/auth/usage failures still stop")
+                        help="explore/explore-graph: retry generic HTTP 403s after a shared 60-second cooldown; explicit safety/auth/usage failures still stop")
     parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading or investigation each")
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--min-interval", type=float, default=0.0,
@@ -160,7 +161,8 @@ def main(argv=None) -> None:
         return
     if args.command == "explore-graph":
         asyncio.run(explore_graph([c for c in args.cases.split(",") if c], args.plain, args.concurrency, args.fallback,
-                                  args.curve, tuple(int(r) for r in args.run_index.split(","))))
+                                  args.curve, tuple(int(r) for r in args.run_index.split(",")),
+                                  retry_forbidden=args.retry_forbidden))
         return
     if args.command == "generate":
         rows = generate(destination, args.smoke)
