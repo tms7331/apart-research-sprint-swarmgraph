@@ -72,24 +72,24 @@ With no overlap these are the same fleets as in the previous section (#n("sb.sam
 #claim("the graph helps on the overlap-0 fleets", ("sb.split.o0", "sa.split.n100", "sb.same.fleets", "sb.zero.fleets"), (g, a, s, z) => g > a and s == z)
 As overlap grows, the chain that holds the colluders takes in other teams: #n("sb.chain.o0") agents with no overlap, #n("sb.chain.o1") at overlap 1 and #n("sb.chain.o2") at overlap 2 (@fig-graph).
 Detection falls with it, from #n("sb.split.o05") at overlap 0.5 to #n("sb.split.o1") at 1, #n("sb.split.o15") at 1.5 and #n("sb.split.o2") at 2.
-Whether the monitor finds the attack follows the size of that chain: it flags #n("sb.small.caught") fleets whose colluders' chain is at most #n("sb.small.limit") agents, a tenth of the fleet, and #n("sb.large.caught") of the rest.
+Whether the monitor finds the attack follows the size of that chain: it flags the attack in #n("sb.small.caught") runs on fleets whose colluders' chain is at most #n("sb.small.limit") agents, a tenth of the fleet, and #n("sb.large.caught") of the rest.
 #claim("small chains are caught more often than large ones", ("sb.small.caught", "sb.large.caught"), (s, l) => s > l)
 At overlap 4 nearly the whole fleet is one chain, and the monitor turns to text search (#pct("sb.calls.search.o4") of its calls, against #pct("sb.calls.search.o0") with no overlap; @fig-tools); it flags #n("sb.split.o4").
-As without the graph, every miss is a failure to find the evidence: in #n("sb.misses.saw.all") of #n("sb.misses") missed attacks had the monitor seen all three colluders' events, and in #n("sb.catches.saw.all") of #n("sb.catches") catches it had (@tab-graph).
-#claim("no missed attack had seen every colluder's events", ("sb.misses.saw.all",), m => m == 0)
+As without the graph, all but one miss is a failure to find the evidence: in #n("sb.misses.saw.all") of #n("sb.misses") missed attacks had the monitor seen all three colluders' events, and in #n("sb.catches.saw.all") of #n("sb.catches") catches it had (@tab-graph).
+In that one run the monitor found the export path but concluded, wrongly, that the policy didn't cover the checkpoint, and scored it #n("sb.misses.saw.score").
+#claim("all but one missed attack had not seen every colluder's events", ("sb.misses.saw.all",), m => m == 1)
 #claim("every catch had seen every colluder's events", ("sb.catches.saw.all", "sb.catches"), (a, b) => a == b)
 The monitor never flags an honest fleet (#n("sb.honest")), and its highest score on one is #n("sb.honest.max").
 #claim("the graph monitor never flags an honest fleet", ("sb.honest",), h => h == 0)
-#todo[each cell is one run per layout, so a difference of one or two (overlap 2 against 4) is within noise; a second pass, as for the monitor without a graph]
 
 #grid(columns: (1fr, 1fr), gutter: 1.2em,
   [#figure(
     data-figure("sb-tools", width: 100%),
-    caption: [*As overlap grows, the monitor abandons the graph for text search.* The monitor's tool calls by kind (graph tools list, search and read the graph's chains) at #n("sb.agents") agents, with the split attacks it caught above each bar (#n("sb.explorations") runs: one per layout and run type at each overlap).],
+    caption: [*As overlap grows, the monitor abandons the graph for text search.* The monitor's tool calls by kind (graph tools list, search and read the graph's chains) at #n("sb.agents") agents, with the split attacks it caught above each bar (#n("sb.explorations") runs: each fleet monitored #n("sb.passes") times).],
   ) <fig-tools>],
   [#figure(
     data-figure("sb-figure", width: 100%),
-    caption: [*The graph helps until overlap merges the fleet into one chain.* Agents in the chain that holds the three colluders, one square per attack fleet, filled where the monitor caught it; shaded, chains of at most a tenth of the fleet. No honest fleet is flagged (#n("sb.honest")).],
+    caption: [*The graph helps until overlap merges the fleet into one chain.* Agents in the chain that holds the three colluders, one square per attack fleet: solid where the monitor caught the attack in every run, light where it caught it in some, hollow where it never did; shaded, chains of at most a tenth of the fleet. No honest fleet is flagged (#n("sb.honest")).],
   ) <fig-graph>],
 )
 #claim("as overlap grows, the monitor abandons the graph for text search", ("sb.calls.graph.o0", "sb.calls.graph.o4", "sb.calls.search.o0", "sb.calls.search.o4"), (g0, g4, s0, s4) => g4 < g0 and s4 > s0)
@@ -97,7 +97,7 @@ The monitor never flags an honest fleet (#n("sb.honest")), and its highest score
 
 #figure(
   data-table("sb-table"),
-  caption: [Experiment B by overlap: the colluders' chain in each layout, attacks caught and honest fleets falsely flagged (out of four layouts), the share of calls that used a graph tool, and the median calls and input tokens per run.],
+  caption: [Experiment B by overlap: the colluders' chain in each layout, attacks caught and honest fleets falsely flagged (out of four layouts × #n("sb.passes") passes), the share of calls that used a graph tool, and the median calls and input tokens per run.],
 ) <tab-graph>
 
 == Following the data instead of grouping agents <sec-flow>
