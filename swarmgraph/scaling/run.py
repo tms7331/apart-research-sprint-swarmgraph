@@ -82,7 +82,8 @@ async def explore(destination: Path, cases: list[str], run_indices: list[int], c
 
 def reports(destination: Path, smoke: bool) -> None:
     from .analysis import report
-    report(destination, destination / "report_all_logs" if smoke else REPORT, smoke)
+    if (destination / "judgments.jsonl").exists():  # the all-logs reference; no report until it has readings
+        report(destination, destination / "report_all_logs" if smoke else REPORT, smoke)
     investigator.report(destination, destination / "report_investigator" if smoke else INVESTIGATOR_REPORT,
                         investigator.SMOKE_RUNS if smoke else investigator.RUNS)
     if (destination / explorer.LOG).exists():
