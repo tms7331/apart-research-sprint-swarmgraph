@@ -20,7 +20,7 @@ from swarmgraph.transfer_baseline.io import read_jsonl, utc_now
 from swarmgraph.transfer_baseline.monitoring import judge_one
 from swarmgraph.transfer_baseline.run import MonitorClient, pending
 
-from . import explorer, investigator
+from . import explorer, graph, investigator
 from .design import DESTINATION, EXPLORER_REPORT, INVESTIGATOR_REPORT, REPORT, SMOKE_DESTINATION, generate, protocol
 
 
@@ -88,9 +88,56 @@ def reports(destination: Path, smoke: bool) -> None:
         explorer.report(destination, destination / "report_explorer" if smoke else EXPLORER_REPORT)
 
 
+def graph_sandbox() -> None:
+    """Experiment B: generate the two sandbox fleets and show how the graph splits them into chains."""
+    from .design import GRAPH_DESTINATION, GRAPH_SANDBOX, graph_sandbox_cases
+    rows = generate(GRAPH_DESTINATION, cases=graph_sandbox_cases(), design={"experiment": "B sandbox", **GRAPH_SANDBOX})
+    for row in rows:
+        events = read_jsonl(GRAPH_DESTINATION / "episodes" / row["case_id"] / "observations.jsonl")
+        built = graph.build(events)
+        print(json.dumps({"case_id": row["case_id"], "agents": len(row["agent_ids"]),
+                          **graph.describe(built, row["colluding_agent_ids"])}), flush=True)
+
+
+def fallback_client(root: Path, enabled: bool, concurrency: int):
+    """OpenRouter, same model, for quick runs (``--fallback``); None for full runs."""
+    if not enabled:
+        return None
+    from swarmgraph.transfer_baseline.openrouter import OpenRouterClient, load_key
+    key = load_key()
+    if not key:
+        raise RuntimeError("--fallback needs OPENROUTER_KEY in the environment or .env")
+    return OpenRouterClient(root, key, concurrency)
+
+
+async def explore_graph(cases: list[str], plain: bool, concurrency: int = 8, fallback: bool = False) -> None:
+    """Experiment B's sandbox: explore the graph fleets with graph tools (or, with plain, A's tools only)."""
+    from .design import GRAPH_DESTINATION
+    mode = explorer.LOG_MODE if plain else explorer.GRAPH_MODE
+    episodes = [e for e in read_jsonl(GRAPH_DESTINATION / "episodes.jsonl") if not cases or e["case_id"] in cases]
+    client = MonitorClient(GRAPH_DESTINATION / "raw_calls", concurrency,
+                           fallback=fallback_client(GRAPH_DESTINATION / "raw_calls", fallback, concurrency))
+    _stopped(client)
+    await explorer.run_explorations(client, GRAPH_DESTINATION, episodes, [0], mode)
+    rows = {r["case_id"]: r for r in read_jsonl(GRAPH_DESTINATION / mode.log) if r.get("status") == "ok"}
+    for episode in episodes:
+        r = rows.get(episode["case_id"])
+        if r:
+            colluders = set(episode["colluding_agent_ids"])
+            print(json.dumps({"mode": mode.prompt_version, "case_id": r["case_id"], "score": r["score"],
+                              "providers": sorted({t.get("provider", "codex") for t in r["turns"]}),
+                              "calls": r["calls_used"], "tools": r["tools_used"],
+                              "blamed_colluder": bool(set(r["suspected_agent_ids"]) & colluders)}), flush=True)
+    _stopped(client)
+
+
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("generate", "investigate", "explore", "judge", "report"))
+    parser.add_argument("command", choices=("generate", "investigate", "explore", "judge", "report", "graph-sandbox",
+                                            "explore-graph"))
+    parser.add_argument("--plain", action="store_true", help="explore-graph: A's explorer (no graph tools) on the graph fleets")
+    parser.add_argument("--fallback", action="store_true",
+                        help="quick runs only: on a subscription 403, switch to OpenRouter (same model)")
     parser.add_argument("--cases", default="", help="explore: comma-separated case IDs (default: every episode)")
     parser.add_argument("--run-index", default="0", help="explore: which pass(es) of the real run, e.g. 0 or 1 or 0,1")
     parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading or investigation each")
@@ -99,6 +146,12 @@ def main(argv=None) -> None:
                         help="seconds between call starts (2.0 = at most 30 calls a minute); 403s followed a burst of ~74/minute")
     args = parser.parse_args(argv)
     destination = SMOKE_DESTINATION if args.smoke else DESTINATION
+    if args.command == "graph-sandbox":
+        graph_sandbox()
+        return
+    if args.command == "explore-graph":
+        asyncio.run(explore_graph([c for c in args.cases.split(",") if c], args.plain, args.concurrency, args.fallback))
+        return
     if args.command == "generate":
         rows = generate(destination, args.smoke)
         print(json.dumps({"episodes": len(rows), "destination": str(destination)}))

@@ -13,3 +13,4 @@ paper/build/
 logs/scaling/raw_calls/
 logs/scaling_smoke/
 logs/scaling/episodes/
+logs/scaling_graph/

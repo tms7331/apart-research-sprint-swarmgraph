@@ -31,12 +31,17 @@ class MonitorClient:
     """Only review records; never request actor behavior.
 
     Any access restriction, authentication failure or usage limit writes
-    STOP_ACCESS and stops queued calls. No alternate model, route, or revised
-    prompt is used. ``min_interval`` (seconds) spaces out the starts of calls,
-    so a run can't burst: 2.0 caps it at 30 calls a minute.
+    STOP_ACCESS and stops queued calls. ``min_interval`` (seconds) spaces out
+    the starts of calls, so a run can't burst: 2.0 caps it at 30 calls a minute.
+
+    ``fallback`` (an OpenRouterClient; quick runs only, never full runs): on the
+    first access refusal (HTTP 403) the run switches to OpenRouter with the same
+    model, notes it in FALLBACK_OPENROUTER, and stays there. A safety rejection
+    never falls back. Every result records the route that answered it.
     """
-    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0):
+    def __init__(self, root: Path, concurrency=4, min_interval: float = 0.0, fallback=None):
         self.root = Path(root)
+        self.fallback, self.on_fallback = fallback, False
         self.client = CodexClient(self.root, concurrency=concurrency, timeout=180, retries=1)
         self.semaphore = asyncio.Semaphore(concurrency)
         self.min_interval = min_interval
@@ -69,10 +74,20 @@ class MonitorClient:
         async with self.semaphore:
             if self.stopped:
                 return {"status": "not_run", "call_id": call_id, "error_kind": "study_stopped"}
+            if self.fallback and self.on_fallback and not self._cached(call_id):
+                return await self.fallback.ask(prompt, schema, purpose, call_id)
             await self._paced(call_id)
             if self.stopped:
                 return {"status": "not_run", "call_id": call_id, "error_kind": "study_stopped"}
             result = await self.client.ask(prompt, schema, purpose, call_id)
+            result.setdefault("provider", "codex")
+            if self.fallback and result.get("error_kind") == "access_forbidden":
+                self.on_fallback = True
+                write_json(self.root / "FALLBACK_OPENROUTER", {"at": utc_now(), "call_id": call_id,
+                           "codex_refusal": result.get("output_path")})
+                answer = await self.fallback.ask(prompt, schema, purpose, call_id)
+                answer["codex_refusal"] = result.get("output_path")
+                return answer
             if result.get("error_kind") in TERMINAL or result["status"] == "usage_limit":
                 write_json(self.root / "STOP_ACCESS", {"at": utc_now(), "call_id": call_id,
                            "error_kind": result.get("error_kind"), "result": result.get("output_path")})

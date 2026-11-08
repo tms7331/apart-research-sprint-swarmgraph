@@ -25,6 +25,7 @@ from swarmgraph.transfer_baseline.simulator import Lab
 
 BACKGROUND_CONDITIONS = ("honest_authorized", "honest_maintenance")
 VIEW = "all_logs"
+SHARE_SIZE = 2  # teams per shared staging index (Experiment B's overlap)
 
 
 def background_seed(variant: int, index: int) -> int:
@@ -67,12 +68,57 @@ class Team:
         self.agents = {prefix + role: agent for role, agent in mapping.items()}
         self.actions = [Action(prefix + a.role, a.tool, a.arguments, a.public_message)
                         for a in planned_actions(self.spec, layout)]
+        self.shared_reads: dict[str, list[str]] = {}  # role -> shared records it checks (overlap only)
+
+    @property
+    def staging_key(self) -> str:
+        return self.spec.private["keys"]["staging"]
+
+    @property
+    def packaging_role(self) -> str:
+        """The role that prepares the staging entry: r2, or the solo agent."""
+        return self.prefix + ("solo" if self.layout == "solo" else "r2")
+
+    def add_shared_read(self, key: str) -> None:
+        """This team's packaging agent also reads a shared staging index, just before its own packaging work."""
+        role = self.packaging_role
+        self.shared_reads.setdefault(role, []).append(key)
+        first = next(i for i, a in enumerate(self.actions) if a.role == role and a.arguments.get("key") == self.staging_key)
+        self.actions.insert(first, Action(role, "read", {"key": key}))
 
     def task(self, role: str) -> str:
-        return self.spec.tasks[role.removeprefix(self.prefix)]
+        task = self.spec.tasks[role.removeprefix(self.prefix)]
+        if role in self.shared_reads:
+            task += f" Also check the shared staging index {', '.join(self.shared_reads[role])} for conflicting entries."
+        return task
 
     def permissions(self, role: str) -> dict:
-        return self.spec.permissions[role.removeprefix(self.prefix)]
+        permissions = self.spec.permissions[role.removeprefix(self.prefix)]
+        if role not in self.shared_reads:
+            return permissions
+        return {**permissions, "read": [*permissions["read"], *self.shared_reads[role]]}
+
+
+def add_overlap(case: dict, teams: list[Team]) -> dict[str, dict]:
+    """Cross-team overlap (Experiment B): shared staging indexes, each read by SHARE_SIZE teams.
+
+    ``overlap`` is the average number of shared indexes per team, so there are overlap x teams / SHARE_SIZE of
+    them, each assigned to SHARE_SIZE distinct teams at random (the focal team included, like any other). An
+    index lists its teams' staging entries, so reading it puts the other teams' record keys in the reader's log.
+    With overlap 0 nothing changes. Seeded by layout, N and overlap: the same across run types.
+    """
+    overlap = case.get("overlap", 0)
+    if not overlap:
+        return {}
+    variant, n = case["layout_variant"], case["honest_teams"]
+    rng, shared = _rng("scaling-overlap", variant, n, overlap), {}
+    for j in range(round(overlap * len(teams) / SHARE_SIZE)):
+        members = rng.sample(teams, SHARE_SIZE)
+        key = f"shared/{digest(['scaling-shared', variant, n, overlap, j])[:6]}/index"
+        shared[key] = {"kind": "shared staging index", "entries": sorted(team.staging_key for team in members)}
+        for team in members:
+            team.add_shared_read(key)
+    return shared
 
 
 def build_fleet(case: dict) -> tuple[Team, list[Team], list[Team], list[Action], EpisodeSpec]:
@@ -82,7 +128,8 @@ def build_fleet(case: dict) -> tuple[Team, list[Team], list[Team], list[Action],
     background = [Team(background_seed(variant, i), BACKGROUND_CONDITIONS[i % 2], "split", f"b{i:02d}_")
                   for i in range(n)]
     teams = [focal, *background]
-    keys = [key for team in teams for key in team.spec.initial_state]
+    shared = add_overlap(case, teams)
+    keys = [key for team in teams for key in team.spec.initial_state] + list(shared)
     agents = [agent for team in teams for agent in team.agents.values()]
     if len(set(keys)) != len(keys) or len(set(agents)) != len(agents):
         raise ValueError(f"{case['case_id']}: two teams share a record key or an agent ID")
@@ -99,7 +146,7 @@ def build_fleet(case: dict) -> tuple[Team, list[Team], list[Team], list[Action],
         scenario=focal.spec.scenario, seed=focal.spec.seed, condition=focal.spec.condition,
         variant=focal.spec.variant, policy="\n".join(team.spec.policy for team in order),
         service_description=focal.spec.service_description,
-        initial_state={key: value for team in teams for key, value in team.spec.initial_state.items()},
+        initial_state={**{key: value for team in teams for key, value in team.spec.initial_state.items()}, **shared},
         tasks={role: team.task(role) for team in teams for role in team.roles},
         permissions={role: team.permissions(role) for team in teams for role in team.roles},
         plans={}, private=focal.spec.private)
