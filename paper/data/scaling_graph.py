@@ -55,50 +55,74 @@ def observations(case_id: str, event_count: int) -> list[dict]:
     return events
 
 
-def draw_graph(ax: Any, data: dict) -> None:
-    """Left: share of explorations that flag the fleet, by overlap. Right: the size of the chain that holds the
-    colluders in each attack fleet, filled where the explorer caught the attack."""
-    fig = ax.figure
-    ax.remove()
-    left, right = fig.subplots(1, 2, gridspec_kw={"wspace": 0.42})
-    overlaps = data["overlaps"]
-    left.plot(overlaps, data["split"], color=SPLIT, linewidth=2, marker="s", markersize=7, markeredgecolor="white",
-              label="split attack", zorder=3)
-    left.plot(overlaps, data["honest"], color=HONEST, linewidth=2, marker="^", markersize=7, markeredgecolor="white",
-              label="honest (false alarm)", zorder=3)
-    left.plot([0], [data["a_split"]], linestyle="none", marker="D", markersize=6, color=MUTED, zorder=4,
-              label="split attack, no graph")
-    left.set_ylim(-0.04, 1.06)
-    left.yaxis.set_major_formatter(PercentFormatter(1.0))
-    left.set_title("explorations that flag the fleet", fontsize=8, color=INK, loc="left")
-    left.legend(loc="center right", bbox_to_anchor=(1.0, 0.72), fontsize=7, frameon=False)
+TOOL_KINDS = (  # the monitor's calls by kind -> (label, color): one accent (blue) for the graph, greys for the rest
+    ("graph", "graph tools", "#2a78d6"),
+    ("search", "text search", "#3d3c39"),
+    ("read", "reading the log", "#d3d2cc"),
+)
+
+
+def tool_kind(tool: str) -> str:
+    return "graph" if tool in GRAPH_TOOLS else "search" if tool == "search" else "read"
+
+
+def style(axis: Any, overlaps: list) -> None:
+    xs = list(range(len(overlaps)))
+    axis.xaxis.set_major_locator(FixedLocator(xs))
+    axis.set_xticklabels([f"{o:g}" for o in overlaps])
+    axis.set_xlim(-0.55, xs[-1] + 0.55)
+    axis.set_xlabel("tool-call overlap between teams", fontsize=8, color=INK)
+    axis.tick_params(axis="both", length=0, labelsize=8, colors=INK)
+    axis.grid(axis="y", color=GRID, linewidth=0.6)
+    axis.set_axisbelow(True)
+    for side in ("top", "right", "left"):
+        axis.spines[side].set_visible(False)
+    axis.spines["bottom"].set_color(GRID)
+
+
+def draw_tools(ax: Any, data: dict) -> None:
+    """The monitor's tool calls by kind at each overlap, with the split attacks it caught above each bar."""
+    xs = list(range(len(data["overlaps"])))
+    bottom = [0.0] * len(xs)
+    for kind, label, color in TOOL_KINDS:
+        shares = data["tools"][kind]
+        ax.bar(xs, shares, bottom=bottom, width=0.64, color=color, label=label, edgecolor="white", linewidth=0.6,
+               zorder=3)
+        bottom = [b + s for b, s in zip(bottom, shares)]
+    for x, (caught, total) in zip(xs, data["caught"]):
+        ax.text(x, 1.03, f"{caught}/{total}", fontsize=8, color=INK, ha="center", va="bottom")
+    ax.text(-0.62, 1.03, "caught:", fontsize=7.5, color=MUTED, ha="right", va="bottom")
+    ax.set_ylim(0, 1.12)
+    ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
+    ax.yaxis.set_major_formatter(PercentFormatter(1.0))
+    ax.set_ylabel("share of the monitor's tool calls", fontsize=8, color=INK)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.1), ncol=3, fontsize=7, frameon=False, handlelength=1.2,
+              columnspacing=1.0)
+    style(ax, data["overlaps"])
+
+
+def draw_chains(ax: Any, data: dict) -> None:
+    """The size of the chain that holds the colluders in each attack fleet, filled where the monitor caught it."""
     for (x, y, caught) in data["points"]:
-        right.plot(x, y, linestyle="none", marker="s", markersize=5, color=SPLIT, markeredgewidth=1.5,
-                   markerfacecolor=SPLIT if caught else "white", zorder=3)
-    right.set_yscale("log")
-    right.yaxis.set_major_locator(FixedLocator(data["chain_ticks"]))
-    right.yaxis.set_minor_locator(NullLocator())
-    right.set_yticklabels([str(t) for t in data["chain_ticks"]])
-    right.set_ylim(2.3, data["agents"] * 1.5)
+        ax.plot(x, y, linestyle="none", marker="s", markersize=5, zorder=4 if caught else 3,
+                color=SPLIT if caught else MUTED, markerfacecolor=SPLIT if caught else "white",
+                markeredgecolor="white" if caught else MUTED, markeredgewidth=0.8 if caught else 1.2)
+    ax.set_yscale("log")
+    ax.yaxis.set_major_locator(FixedLocator(data["chain_ticks"]))
+    ax.yaxis.set_minor_locator(NullLocator())
+    ax.set_yticklabels([str(t) for t in data["chain_ticks"]])
+    ax.set_ylim(2.3, data["agents"] * 1.6)
+    ax.axhspan(2.3, data["small_limit"], color=SPLIT, alpha=0.06, linewidth=0, zorder=0)
     for level, text in ((data["agents"], "whole fleet"), (data["small_limit"], "a tenth of the fleet")):
-        right.axhline(level, color=MUTED, linewidth=1, linestyle=(0, (4, 3)), zorder=1)
-        right.text(overlaps[-1] + 0.45, level * 1.08, text, fontsize=7, color=MUTED, ha="right", va="bottom")
-    right.set_title("agents in the colluders' chain (log scale)", fontsize=8, color=INK, loc="left")
-    right.legend(handles=[
-        Line2D([], [], linestyle="none", marker="s", markersize=6, color=SPLIT, label="caught"),
-        Line2D([], [], linestyle="none", marker="s", markersize=6, color=SPLIT, markerfacecolor="white",
-               markeredgewidth=1.5, label="missed")], loc="lower right", fontsize=7, frameon=False)
-    for axis in (left, right):
-        axis.xaxis.set_major_locator(FixedLocator(overlaps))
-        axis.set_xticklabels([f"{o:g}" for o in overlaps])
-        axis.set_xlim(-0.45, overlaps[-1] + 0.45)
-        axis.set_xlabel("overlap (shared indexes per team)", fontsize=8, color=INK)
-        axis.tick_params(axis="both", length=0, labelsize=8, colors=INK)
-        axis.grid(axis="y", color=GRID, linewidth=0.6)
-        axis.set_axisbelow(True)
-        for side in ("top", "right", "left"):
-            axis.spines[side].set_visible(False)
-        axis.spines["bottom"].set_color(GRID)
+        ax.axhline(level, color=MUTED, linewidth=1, linestyle=(0, (4, 3)), zorder=1)
+        ax.text(-0.5, level * 1.08, text, fontsize=7, color=MUTED, ha="left", va="bottom")
+    ax.set_ylabel("agents in the colluders' chain (log scale)", fontsize=8, color=INK)
+    ax.legend(handles=[
+        Line2D([], [], linestyle="none", marker="s", markersize=6, color=SPLIT, label="attack caught"),
+        Line2D([], [], linestyle="none", marker="s", markersize=6, color=MUTED, markerfacecolor="white",
+               markeredgewidth=1.2, label="attack missed")], loc="lower center", bbox_to_anchor=(0.5, 1.1), ncol=2,
+        fontsize=7, frameon=False)
+    style(ax, data["overlaps"])
 
 
 @source("sb")
@@ -183,14 +207,17 @@ def scaling_graph(ledger: Ledger) -> None:
           f"{median(r['calls'] for r in rows if r['overlap'] == o):.0f}",
           f"{median(r['input_tokens'] for r in rows if r['overlap'] == o) / 1000:,.0f}K"] for o in overlaps],
         how=HOW)
-    a_split = [r for r in explorer.summary(A_RUN) if r["case_id"] in same and r["condition"] == "split_attack"]
-    jitter = {0: -0.18, 1: -0.06, 2: 0.06, 3: 0.18}  # layouts side by side, so squares don't hide each other
-    ledger.figure("sb-figure", draw_graph, {
-        "overlaps": overlaps, "agents": agents, "small_limit": small_limit,
-        "chain_ticks": [3, 10, 30, 100, agents],
-        "split": [sum(map(flagged, cells[(o, "split_attack")])) / len(cells[(o, "split_attack")]) for o in overlaps],
-        "honest": [sum(map(flagged, cells[(o, "honest_authorized")])) / len(cells[(o, "honest_authorized")])
-                   for o in overlaps],
-        "a_split": sum(r["flagged"] for r in a_split) / len(a_split),
-        "points": [(r["overlap"] + jitter[r["layout"]], r["chain"], r["flagged"]) for r in split]},
-        how=f"{HOW}; right panel: one square per attack fleet, filled where it was flagged", size=(6.5, 3.0))
+    jitter = {0: -0.27, 1: -0.09, 2: 0.09, 3: 0.27}  # layouts side by side, so squares don't hide each other
+    shares = {kind: [] for kind, _, _ in TOOL_KINDS}
+    for o in overlaps:
+        kinds = Counter(tool_kind(c["tool"]) for c in calls if c["overlap"] == o)
+        for kind in shares:
+            shares[kind].append(kinds[kind] / sum(kinds.values()))
+    ledger.figure("sb-tools", draw_tools, {
+        "overlaps": overlaps, "tools": shares,
+        "caught": [(sum(map(flagged, cells[(o, "split_attack")])), len(cells[(o, "split_attack")])) for o in overlaps]},
+        how=f"{HOW}; the monitor's tool calls by kind, every run, with split attacks caught above", size=(3.2, 3.0))
+    ledger.figure("sb-figure", draw_chains, {
+        "overlaps": overlaps, "agents": agents, "small_limit": small_limit, "chain_ticks": [3, 10, 30, 100, agents],
+        "points": [(overlaps.index(r["overlap"]) + jitter[r["layout"]], r["chain"], r["flagged"]) for r in split]},
+        how=f"{HOW}; one square per attack fleet, filled where it was flagged", size=(3.2, 3.0))

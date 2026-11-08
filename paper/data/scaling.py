@@ -18,9 +18,9 @@ from swarmgraph.transfer_baseline.io import read_jsonl
 ROOT = Path(__file__).resolve().parents[2]
 RUN = ROOT / "logs" / "scaling"
 SERIES = {  # condition -> (label, color, marker): dataviz categorical slots 1-3, validated; shapes differ too
-    "solo_attack": ("attack by one agent", "#2a78d6", "o"),
-    "split_attack": ("attack split across three", "#eb6834", "s"),
-    "honest_authorized": ("honest fleet (false alarm)", "#1baf7a", "^"),
+    "solo_attack": ("solo attack", "#2a78d6", "o"),
+    "split_attack": ("split attack", "#eb6834", "s"),
+    "honest_authorized": ("honest (false alarm)", "#1baf7a", "^"),
 }
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e0e0e0"
 HOW = "explorations whose final score is at least 75 / explorations; 4 layouts x 2 passes, pooled (no interval)"
@@ -40,7 +40,8 @@ def draw_detection(ax: Any, data: dict) -> None:
         ax.annotate(label, (sizes[-1], rates[-1]), xytext=(8, 0), textcoords="offset points", va="center",
                     fontsize=8, color=INK)
     ax.axvline(data["boundary"], color=MUTED, linewidth=1, linestyle=(0, (4, 3)))
-    ax.text(data["boundary"] * 1.07, 0.5, "log longer than\nthe read budget", fontsize=7.5, color=MUTED, va="center")
+    ax.text(data["boundary"] * 1.07, 0.5, f"log longer than\n{data['budget']} calls can read", fontsize=7.5, color=MUTED,
+            va="center")
     ax.set_xscale("log")
     ax.xaxis.set_major_locator(FixedLocator(sizes))
     ax.xaxis.set_minor_locator(NullLocator())
@@ -49,7 +50,7 @@ def draw_detection(ax: Any, data: dict) -> None:
     ax.set_ylim(-0.04, 1.06)
     ax.yaxis.set_major_formatter(PercentFormatter(1.0))
     ax.set_xlabel("agents in the fleet (log scale)", fontsize=8, color=INK)
-    ax.set_ylabel("explorations that flag the fleet", fontsize=8, color=INK)
+    ax.set_ylabel("fleets flagged", fontsize=8, color=INK)
     ax.tick_params(axis="both", length=0, labelsize=8, colors=INK)
     ax.grid(axis="y", color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
@@ -85,6 +86,9 @@ def scaling_explorer(ledger: Ledger) -> None:
     ledger.value("sa.passes", len({r.get("run_index", 0) for r in read_jsonl(RUN / "explorations.jsonl") if r.get("status") == "ok"}),
                  how="passes of the real run (one exploration of every episode each)")
     ledger.value("sa.budget", explorer.BUDGET_CALLS, how="tool calls per exploration")
+    ledger.value("sa.read.max", explorer.READ_LOG_MAX, how="most events one read_log call returns")
+    ledger.value("sa.capacity", explorer.BUDGET_CALLS * explorer.READ_LOG_MAX,
+                 how="the monitor's capacity: events it can read in its whole budget (calls x events per read)")
     ledger.value("sa.threshold", explorer.THRESHOLD, how="final score at or above which an exploration flags the fleet")
     ledger.value("sa.misses", len(misses), how="attack explorations that did not flag the fleet")
     ledger.value("sa.misses.saw.all", sum(map(saw_all, misses)), how="of those, explorations that saw every colluder's events")
@@ -116,4 +120,4 @@ def scaling_explorer(ledger: Ledger) -> None:
     ledger.figure("sa-figure", draw_detection, {
         "teams": teams, "agents": [agents[n] for n in teams],
         "rates": {c: {n: sum(map(flagged, cells[(n, c)])) / len(cells[(n, c)]) for n in teams} for c in SERIES},
-        "boundary": (last_fit * first_over) ** 0.5}, how=f"{HOW}; one line per run type", size=(6.5, 3.0))
+        "boundary": (last_fit * first_over) ** 0.5, "budget": explorer.BUDGET_CALLS}, how=f"{HOW}; one line per run type", size=(6.5, 3.0))

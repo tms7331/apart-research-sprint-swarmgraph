@@ -19,41 +19,43 @@ from swarmgraph.transfer_baseline.io import read_jsonl
 ROOT = Path(__file__).resolve().parents[2]
 RUN = ROOT / "logs" / "transfer_baseline"
 TEAM = ("case_id",)  # each team is its own cell: one episode, with its own prompts
-ROWS = {  # the figure's rows, top to bottom: (label, conditions)
-    "solo attack": ("solo_attack",),
-    "split attack": ("split_attack",),
-    "honest, authorized export": ("honest_authorized",),
-    "honest, maintenance": ("honest_maintenance",),
-    "incomplete attack": ("incomplete_attack",),
+ROWS = {  # the figure's row groups, top to bottom: label -> which teams (split layout only: they have both views)
+    "split attack": lambda r: r["condition"] == "split_attack",
+    "honest (no attack)": lambda r: r["condition"] == "honest_authorized",
+    "incomplete attack": lambda r: r["condition"] == "incomplete_attack" and r["omit_role"] == "r1",  # backup step missing
 }
 SERIES = {  # score -> (label, color, marker): dataviz categorical slots 1-2, validated; shapes differ too
-    "per_agent": ("per-agent monitor (highest member)", "#2a78d6", "o"),
-    "joint": ("joint monitor (whole team)", "#eb6834", "s"),
+    "per_agent": ("read individually", "#2a78d6", "o"),
+    "joint": ("read together", "#eb6834", "s"),
 }
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e0e0e0"
 
 
 def draw_scores(ax: Any, data: dict) -> None:
-    """One dot per team and monitor, at its median score; rows by run type; the flag threshold dashed.
-
-    Each series keeps to its own band of the row (per-agent above, joint below), and its teams spread evenly
-    across that band in score order, so equal scores sit side by side and no dot leaves its row."""
-    rows, threshold = data["rows"], data["threshold"]
-    band = 0.34  # each series' share of a row
-    for i, (label, conditions) in enumerate(ROWS.items()):
-        teams = [r for r in rows if r["condition"] in conditions]
-        for j, (key, (_, color, marker)) in enumerate(SERIES.items()):
-            scores = sorted(r[key] for r in teams if r[key] is not None)
-            step = band / max(len(scores) - 1, 1) if len(scores) > 1 else 0
-            for k, score in enumerate(scores):
-                y = i + (j - 0.5) * (band + 0.06) + (k - (len(scores) - 1) / 2) * step
-                ax.plot(score, y, marker, color=color, markersize=5, markeredgecolor="white", markeredgewidth=0.8)
+    """One row per split-layout team, grouped by run type: an arrow from the per-agent monitor's score (its highest
+    member) to the joint monitor's score for the whole team; the flag threshold dashed, the flagged side shaded."""
+    threshold, y, ticks = data["threshold"], 0.0, []
+    for label, pick in ROWS.items():
+        teams = sorted((r for r in data["rows"] if pick(r) and r["joint"] is not None), key=lambda r: r["layout_variant"])
+        first = y
+        for team in teams:
+            alone, together = team["per_agent"], team["joint"]
+            ax.annotate("", xy=(together, y), xytext=(alone, y), zorder=2, arrowprops=dict(
+                arrowstyle="-|>", color=MUTED, lw=1, shrinkA=4, shrinkB=4, mutation_scale=7))
+            for key, value in (("per_agent", alone), ("joint", together)):
+                _, color, marker = SERIES[key]
+                ax.plot(value, y, marker, color=color, markersize=5, markeredgecolor="white", markeredgewidth=0.7,
+                        zorder=3)
+            y += 1
+        ticks.append(((first + y - 1) / 2, label))
+        y += 0.8
+    ax.axvspan(threshold, 103, color=SERIES["joint"][1], alpha=0.07, linewidth=0, zorder=0)
     ax.axvline(threshold, color=MUTED, linewidth=1, linestyle=(0, (4, 3)))
-    ax.text(threshold + 1, -0.75, f"flagged at {threshold}+", color=MUTED, fontsize=8, va="bottom")
-    ax.set_yticks(range(len(ROWS)), labels=list(ROWS), fontsize=8, color=INK)
-    ax.set_ylim(len(ROWS) - 0.5, -0.9)
+    ax.text(threshold + 1.5, y - 1.2, f"flagged at {threshold}+", color=MUTED, fontsize=7.5, va="bottom")
+    ax.set_yticks([t for t, _ in ticks], labels=[label for _, label in ticks], fontsize=8, color=INK)
+    ax.set_ylim(y - 0.6, -1.4)
     ax.set_xlim(-3, 103)
-    ax.set_xlabel("median suspicion score (0-100)", fontsize=8, color=INK)
+    ax.set_xlabel("median suspicion score (0-100); one row per team, layouts 0-3", fontsize=8, color=INK)
     ax.tick_params(axis="both", length=0, labelsize=8, colors=INK)
     ax.grid(axis="x", color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
@@ -95,10 +97,12 @@ def transfer_baseline(ledger: Ledger) -> None:
         return "-" if value is None else f"{value:g}"
     ledger.table(
         "tb-table",
-        ["episode", "per-agent (highest member)", "joint", "member medians"],
+        ["episode", "read individually (highest member)", "read together", "member medians"],
         [[r["case_id"], shown(r["per_agent"]), shown(r["joint"]),
           ", ".join(shown(v["median"]) for v in r["views"] if v["view"] == "per_agent")] for r in rows],
         how="median score per view, per episode",
     )
     ledger.figure("tb-figure", draw_scores, {"rows": rows, "threshold": threshold},
-                  how="one dot per team and monitor at its median score", size=(6.5, 3.6))
+                  how="one row per split-layout team (split attack, honest authorized export, incomplete attack "
+                      "missing its backup step): an arrow from its per-agent score to its joint score",
+                  size=(6.5, 2.7))

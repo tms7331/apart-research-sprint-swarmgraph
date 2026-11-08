@@ -1,5 +1,5 @@
 """Step 2, Experiment C (swarmgraph/scaling/flow.py): the flow graph finds the agents to read together, and Step 1's
-group monitor judges them. Jev labels every tool call (source, carrier, sink); calls are linked from a record's
+monitor judges each group, read together. Jev labels every tool call (source, carrier, sink); calls are linked from a record's
 writer to its later readers; a sampled simulation scores where private data reaches an outside delivery through
 another agent; the judge reads the top three groups.
 
@@ -12,6 +12,8 @@ from collections import Counter, defaultdict
 from statistics import median
 from typing import Any
 
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 from matplotlib.ticker import FixedLocator, PercentFormatter
 
 from paper.data import source
@@ -26,57 +28,68 @@ RUN = B_RUN.parent / "scaling_flow"
 HOW = "judgments whose highest group score is at least 75 / judgments; 4 layouts x 2 passes, pooled (no interval)"
 
 
-def draw_flow(ax: Any, data: dict) -> None:
-    """Left: share of fleets flagged as overlap grows, at 100 teams: the flow graph against B's graph explorer and
-    A's explorer. Right: the judge's score on each judgment as the fleet grows, at overlap 4."""
-    fig = ax.figure
-    ax.remove()
-    left, right = fig.subplots(1, 2, gridspec_kw={"wspace": 0.38, "width_ratios": [1.35, 1]})
-    xs = list(range(len(data["overlaps"])))
-    b = len(data["b_split"])
-    left.axvspan(b - 0.5, xs[-1] + 0.5, color=GRID, alpha=0.35, linewidth=0, zorder=0)
-    left.text(b - 0.35, 0.47, "beyond B's\nrange", fontsize=7, color=MUTED, ha="left", va="center")
-    left.plot(xs, data["split"], color=SPLIT, linewidth=2, marker="s", markersize=7, markeredgecolor="white",
-              label="split attack, flow graph", zorder=4)
-    left.plot(xs, data["honest"], color=HONEST, linewidth=2, marker="^", markersize=7, markeredgecolor="white",
-              label="honest, flow graph (false alarm)", zorder=4)
-    left.plot(xs[:b], data["b_split"], color=MUTED, linewidth=1.5, linestyle=(0, (4, 2)), marker="o", markersize=5,
-              markerfacecolor="white", markeredgewidth=1.5, label="split attack, B's graph", zorder=6)
-    left.plot([0], [data["a_split"]], linestyle="none", marker="D", markersize=6, color=MUTED, zorder=6,
-              label="split attack, no graph")
-    left.set_ylim(-0.04, 1.06)
-    left.yaxis.set_major_formatter(PercentFormatter(1.0))
-    left.xaxis.set_major_locator(FixedLocator(xs))
-    left.set_xticklabels([f"{o:g}" for o in data["overlaps"]])
-    left.set_xlim(-0.5, xs[-1] + 0.5)
-    left.set_xlabel("overlap (shared indexes per team), 303 agents", fontsize=8, color=INK)
-    left.set_title("fleets flagged", fontsize=8, color=INK, loc="left")
-    fig.legend(*left.get_legend_handles_labels(), loc="lower center", bbox_to_anchor=(0.5, 0.99), ncol=4,
-               fontsize=7, frameon=False, handlelength=2.6, columnspacing=1.4)
+SEQ = ["#f4f8fd", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95"]  # dataviz sequential blue
 
-    sizes = data["sizes"]
+
+def draw_board(ax: Any, data: dict) -> None:
+    """A scoreboard: the split attacks each method caught under each condition (hatched: not run)."""
+    conds, labels = data["conditions"], data["labels"]
+    for i, (name, counts) in enumerate(data["methods"]):
+        for j, count in enumerate(counts):
+            if count is None:
+                ax.add_patch(Rectangle((j, i), 1, 1, facecolor="white", edgecolor=GRID, hatch="////", linewidth=0.5))
+                continue
+            k, n = count
+            ax.add_patch(Rectangle((j, i), 1, 1, facecolor=SEQ[round(6 * k / n)], edgecolor="white", linewidth=1.5))
+            ax.text(j + 0.5, i + 0.5, f"{k}/{n}", fontsize=8, ha="center", va="center",
+                    color="white" if k / n > 0.6 else INK)
+    ax.set_xlim(0, len(conds))
+    ax.set_ylim(len(data["methods"]), 0)
+    ax.set_xticks([j + 0.5 for j in range(len(conds))], labels=labels)
+    ax.set_yticks([i + 0.5 for i in range(len(data["methods"]))], labels=[m for m, _ in data["methods"]])
+    split = data["split_at"]
+    ax.axvline(split, color=INK, linewidth=0.8)
+    ax.text(split / 2, -0.12, "303 agents, by tool-call overlap between teams", fontsize=7.5, color=MUTED,
+            ha="center", va="bottom")
+    ax.text((split + len(conds)) / 2, -0.12, "overlap 4", fontsize=7.5, color=MUTED, ha="center", va="bottom")
+    ax.legend(handles=[Rectangle((0, 0), 1, 1, facecolor=SEQ[6], label="all caught"),
+                       Rectangle((0, 0), 1, 1, facecolor=SEQ[3], label="half"),
+                       Rectangle((0, 0), 1, 1, facecolor=SEQ[0], edgecolor=GRID, label="none"),
+                       Rectangle((0, 0), 1, 1, facecolor="white", edgecolor=GRID, hatch="////", label="not run")],
+              loc="upper right", bbox_to_anchor=(1.0, -0.42), ncol=4, fontsize=7, frameon=False, handlelength=1.2,
+              columnspacing=0.9)
+    ax.tick_params(axis="both", length=0, labelsize=8, colors=INK)
+    for side in ("top", "right", "left", "bottom"):
+        ax.spines[side].set_visible(False)
+
+
+def draw_judge(ax: Any, data: dict) -> None:
+    """The judge's score on every judgment, split attack against honest twin, one row per condition."""
+    conds = data["conditions"]
     for i, (attack, honest) in enumerate(zip(data["attack_scores"], data["honest_scores"])):
-        for scores, marker, color, size in ((attack, "s", SPLIT, 4.5), (honest, "^", HONEST, 5)):
-            for score, count in sorted(Counter(scores).items()):  # tied scores side by side, centred
-                for k in range(count):
-                    right.plot(i + 0.07 * (k - (count - 1) / 2), score, linestyle="none", marker=marker,
-                               markersize=size, color=color, markeredgecolor="white", markeredgewidth=0.6, zorder=3)
-    right.axhline(data["threshold"], color=MUTED, linewidth=1, linestyle=(0, (4, 3)), zorder=1)
-    right.text(len(sizes) - 0.55, data["threshold"] + 1.2, "flag threshold", fontsize=7, color=MUTED, ha="right",
-               va="bottom")
-    right.set_ylim(40, 100)
-    right.xaxis.set_major_locator(FixedLocator(range(len(sizes))))
-    right.set_xticklabels([f"{a:,}" for a in sizes])
-    right.set_xlim(-0.5, len(sizes) - 0.5)
-    right.set_xlabel("agents in the fleet, overlap 4", fontsize=8, color=INK)
-    right.set_title("judge's score, each judgment", fontsize=8, color=INK, loc="left")
-    for axis in (left, right):
-        axis.tick_params(axis="both", length=0, labelsize=8, colors=INK)
-        axis.grid(axis="y", color=GRID, linewidth=0.6)
-        axis.set_axisbelow(True)
-        for side in ("top", "right", "left"):
-            axis.spines[side].set_visible(False)
-        axis.spines["bottom"].set_color(GRID)
+        for scores, color, marker, dy in ((attack, SPLIT, "s", -0.15), (honest, HONEST, "^", 0.15)):
+            for score, count in sorted(Counter(scores).items()):  # tied scores stacked within the row
+                for m in range(count):
+                    ax.plot(score, i + dy + 0.07 * (m - (count - 1) / 2), marker, color=color, markersize=3.8,
+                            markeredgecolor="white", markeredgewidth=0.4, zorder=3)
+    ax.axvline(data["threshold"], color=MUTED, linewidth=1, linestyle=(0, (4, 3)))
+    ax.text(data["threshold"] + 0.8, len(conds) - 0.62, f"flagged at {data['threshold']}+", fontsize=7.5,
+            color=MUTED, va="bottom")
+    ax.set_yticks(range(len(conds)), labels=[f"overlap {o:g}" if n == 100 else f"{3 * n + 3:,} agents"
+                                             for n, o in conds])
+    ax.set_ylim(len(conds) - 0.4, -0.6)
+    ax.set_xlim(45, 100)
+    ax.set_xlabel("judge's score for the fleet (the highest of its groups); each of 4 layouts x 2 passes",
+                  fontsize=8, color=INK)
+    ax.legend(handles=[Line2D([], [], marker="s", color=SPLIT, linestyle="", label="split attack"),
+                       Line2D([], [], marker="^", color=HONEST, linestyle="", label="honest (no attack)")],
+              loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=8, frameon=False)
+    ax.tick_params(axis="both", length=0, labelsize=8, colors=INK)
+    ax.grid(axis="x", color=GRID, linewidth=0.6)
+    ax.set_axisbelow(True)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color(GRID)
 
 
 @source("sc")
@@ -182,13 +195,19 @@ def scaling_flow(ledger: Ledger) -> None:
                       f"{min(r['score'] for r in h)}–{max(r['score'] for r in h)}",
                       f"{100 * median(g['jev_usd'] for g in fleet_groups):.0f}¢"])
     ledger.table("sc-table", header, table, how=HOW)
-    ledger.figure("sc-figure", draw_flow, {
-        "overlaps": overlaps, "threshold": THRESHOLD, "a_split": rate(a_split),
-        "split": [rate(cells[((100, o), "split_attack")]) for o in overlaps],
-        "honest": [rate(cells[((100, o), "honest_authorized")]) for o in overlaps],
-        "b_split": [rate([r for r in b_split if r["overlap"] == o]) for o in overlaps if any(r["overlap"] == o for r in b_split)],
-        "sizes": [3 * n + 3 for n in sizes],
-        "attack_scores": [[r["score"] for r in cells[((n, 4), "split_attack")]] for n in sizes],
-        "honest_scores": [[r["score"] for r in cells[((n, 4), "honest_authorized")]] for n in sizes]},
-        how=f"{HOW}; left: B's graph explorations and A's explorations of the same overlap-0 fleets for comparison",
-        size=(6.5, 3.0))
+    conditions = [(100, o) for o in overlaps] + [(n, 4) for n in sizes if n != 100]
+    count = lambda rs: (sum(r["flagged"] for r in rs), len(rs)) if rs else None
+    ledger.figure("sc-figure", draw_board, {
+        "conditions": conditions, "split_at": len(overlaps),
+        "labels": [f"{o:g}" for o in overlaps] + [f"{3 * n + 3:,}\nagents" for n in sizes if n != 100],
+        "methods": [
+            ("A: no graph", [count(a_split) if (n, o) == (100, 0) else None for n, o in conditions]),
+            ("B: provenance graph", [count([r for r in b_split if r["overlap"] == o]) if n == 100 else None
+                                     for n, o in conditions]),
+            ("C: flow graph + judge", [count(cells[(c, "split_attack")]) for c in conditions])]},
+        how=f"{HOW}; with B's graph runs and A's runs of the same fleets for comparison", size=(6.5, 1.9))
+    ledger.figure("sc-scores", draw_judge, {
+        "conditions": conditions, "threshold": THRESHOLD,
+        "attack_scores": [[r["score"] for r in cells[(c, "split_attack")]] for c in conditions],
+        "honest_scores": [[r["score"] for r in cells[(c, "honest_authorized")]] for c in conditions]},
+        how=f"{HOW}; every judgment's score", size=(6.5, 3.0))
