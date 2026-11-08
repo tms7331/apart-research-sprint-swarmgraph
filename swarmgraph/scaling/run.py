@@ -88,12 +88,15 @@ def reports(destination: Path, smoke: bool) -> None:
         explorer.report(destination, destination / "report_explorer" if smoke else EXPLORER_REPORT)
 
 
-def graph_sandbox() -> None:
-    """Experiment B: generate the two sandbox fleets and show how the graph splits them into chains."""
-    from .design import GRAPH_DESTINATION, GRAPH_SANDBOX, graph_sandbox_cases
-    rows = generate(GRAPH_DESTINATION, cases=graph_sandbox_cases(), design={"experiment": "B sandbox", **GRAPH_SANDBOX})
+def graph_sandbox(curve: bool = False) -> None:
+    """Experiment B: generate the sandbox (or the curve's) fleets and show how the graph splits them into chains."""
+    from .design import (GRAPH_CURVE, GRAPH_CURVE_DESTINATION, GRAPH_DESTINATION, GRAPH_SANDBOX, graph_curve_cases,
+                         graph_sandbox_cases)
+    destination = GRAPH_CURVE_DESTINATION if curve else GRAPH_DESTINATION
+    cases, spec = (graph_curve_cases(), GRAPH_CURVE) if curve else (graph_sandbox_cases(), GRAPH_SANDBOX)
+    rows = generate(destination, cases=cases, design={"experiment": "B curve" if curve else "B sandbox", **spec})
     for row in rows:
-        events = read_jsonl(GRAPH_DESTINATION / "episodes" / row["case_id"] / "observations.jsonl")
+        events = read_jsonl(destination / "episodes" / row["case_id"] / "observations.jsonl")
         built = graph.build(events)
         print(json.dumps({"case_id": row["case_id"], "agents": len(row["agent_ids"]),
                           **graph.describe(built, row["colluding_agent_ids"])}), flush=True)
@@ -110,15 +113,17 @@ def fallback_client(root: Path, enabled: bool, concurrency: int):
     return OpenRouterClient(root, key, concurrency)
 
 
-async def explore_graph(cases: list[str], plain: bool, concurrency: int = 8, fallback: bool = False) -> None:
-    """Experiment B's sandbox: explore the graph fleets with graph tools (or, with plain, A's tools only)."""
-    from .design import GRAPH_DESTINATION
+async def explore_graph(cases: list[str], plain: bool, concurrency: int = 8, fallback: bool = False,
+                        curve: bool = False, run_indices: tuple = (0,)) -> None:
+    """Experiment B: explore the sandbox (or, with curve, the curve's) fleets with graph tools, or A's with plain."""
+    from .design import GRAPH_CURVE_DESTINATION, GRAPH_DESTINATION
+    GRAPH_DESTINATION = GRAPH_CURVE_DESTINATION if curve else GRAPH_DESTINATION
     mode = explorer.LOG_MODE if plain else explorer.GRAPH_MODE
     episodes = [e for e in read_jsonl(GRAPH_DESTINATION / "episodes.jsonl") if not cases or e["case_id"] in cases]
     client = MonitorClient(GRAPH_DESTINATION / "raw_calls", concurrency,
                            fallback=fallback_client(GRAPH_DESTINATION / "raw_calls", fallback, concurrency))
     _stopped(client)
-    await explorer.run_explorations(client, GRAPH_DESTINATION, episodes, [0], mode)
+    await explorer.run_explorations(client, GRAPH_DESTINATION, episodes, list(run_indices), mode)
     rows = {r["case_id"]: r for r in read_jsonl(GRAPH_DESTINATION / mode.log) if r.get("status") == "ok"}
     for episode in episodes:
         r = rows.get(episode["case_id"])
@@ -134,7 +139,8 @@ async def explore_graph(cases: list[str], plain: bool, concurrency: int = 8, fal
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("generate", "investigate", "explore", "judge", "report", "graph-sandbox",
-                                            "explore-graph"))
+                                            "explore-graph", "graph-curve"))
+    parser.add_argument("--curve", action="store_true", help="explore-graph: the curve's fleets, not the sandbox")
     parser.add_argument("--plain", action="store_true", help="explore-graph: A's explorer (no graph tools) on the graph fleets")
     parser.add_argument("--fallback", action="store_true",
                         help="quick runs only: on a subscription 403, switch to OpenRouter (same model)")
@@ -146,11 +152,12 @@ def main(argv=None) -> None:
                         help="seconds between call starts (2.0 = at most 30 calls a minute); 403s followed a burst of ~74/minute")
     args = parser.parse_args(argv)
     destination = SMOKE_DESTINATION if args.smoke else DESTINATION
-    if args.command == "graph-sandbox":
-        graph_sandbox()
+    if args.command in ("graph-sandbox", "graph-curve"):
+        graph_sandbox(curve=args.command == "graph-curve")
         return
     if args.command == "explore-graph":
-        asyncio.run(explore_graph([c for c in args.cases.split(",") if c], args.plain, args.concurrency, args.fallback))
+        asyncio.run(explore_graph([c for c in args.cases.split(",") if c], args.plain, args.concurrency, args.fallback,
+                                  args.curve, tuple(int(r) for r in args.run_index.split(","))))
         return
     if args.command == "generate":
         rows = generate(destination, args.smoke)

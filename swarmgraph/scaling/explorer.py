@@ -233,7 +233,7 @@ from dataclasses import dataclass
 
 from . import graph as _graph
 
-GRAPH_PROMPT_VERSION = "explorer_graph_v1"
+GRAPH_PROMPT_VERSION = "explorer_graph_v2"  # v2: says that matching is against compact JSON
 GRAPH_LOG = "graph_explorations.jsonl"
 GRAPH_TOOLS = ["search", "read_log", "read_events", "read_agent", "list_chains", "find_chains", "read_chain",
                "chain_of", "who_touched", "finish"]
@@ -250,7 +250,7 @@ GRAPH_INSTRUCTIONS = INSTRUCTIONS.replace(
     """
 The operator also has a provenance graph built from this log (FragBench-style). Tool events are linked when they are a call and its result, consecutive actions of the same agent, or mention the same record key; a record mentioned by more than {max_agents} agents counts as busy and links nothing. Linked events form chains: each chain is one group of connected activity. There are {chains} chains.
 - list_chains: set start (0 for the first page). Returns up to {chain_page} chains, largest first: chain_id, number of agents and events, and the records each touches.
-- find_chains: set terms (one or more texts) and start. Returns the chains whose events contain every term (case-insensitive, matched against the events' JSON), largest first, up to {chain_page} per page.
+- find_chains: set terms (one or more texts) and start. Returns the chains whose events contain every term (case-insensitive, matched against the events' compact JSON, which has no spaces after colons or commas, e.g. "enabled":true), largest first, up to {chain_page} per page.
 - read_chain: set chain_id and start (0 for the first event). Returns up to {read_chain} of that chain's events in full, in order.
 - chain_of: set agent_id. Returns that agent's chain: its id, size and agents.
 - who_touched: set record (a record key). Returns how many events mention that record, the agents involved, and up to {who_page} of those events, shortened.

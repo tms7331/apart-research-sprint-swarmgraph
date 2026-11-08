@@ -92,6 +92,19 @@ GRAPH_SANDBOX = {"honest_teams": 100, "overlaps": (0, 4), "layout_variant": 0,
                  "run_types": (("split_attack", "split"), ("honest_authorized", "split"))}
 
 
+# Experiment B's curve: the same fleet size, every layout, and increasing cross-team overlap (average shared
+# staging indexes per team). The giant chain should appear around 1 (each team linked to about one other).
+GRAPH_CURVE_DESTINATION = REPOSITORY / "logs/scaling_graph_curve"
+GRAPH_CURVE = {"honest_teams": 100, "overlaps": (0, 0.5, 1, 1.5, 2, 4), "layout_variants": (0, 1, 2, 3),
+               "run_types": (("split_attack", "split"), ("honest_authorized", "split"))}
+
+
+def graph_curve_cases() -> list[dict]:
+    s = GRAPH_CURVE
+    return [case(variant, s["honest_teams"], condition, layout, overlap)
+            for overlap in s["overlaps"] for variant in s["layout_variants"] for condition, layout in s["run_types"]]
+
+
 def graph_sandbox_cases() -> list[dict]:
     s = GRAPH_SANDBOX
     return [case(s["layout_variant"], s["honest_teams"], condition, layout, overlap)
