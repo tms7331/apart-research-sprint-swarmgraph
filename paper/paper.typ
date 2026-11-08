@@ -90,6 +90,33 @@ The explorer never flags an honest fleet (#n("sb.honest")), and its highest scor
   caption: [Experiment B by overlap: the colluders' chain in each layout, attacks caught and honest fleets falsely flagged (out of four layouts), the share of calls that used a graph tool, and the median calls and input tokens per exploration.],
 ) <tab-graph>
 
+== Following the data instead of grouping agents <sec-flow>
+#todo[the method in full: the three Jev questions, the linking rule, the sampled worlds and the group judge; why a plain read passes nothing on]
+We keep the judge model and threshold, but let a flow graph choose which agents the judge reads together.
+Jev, a decision model, labels each tool call with three probabilities: that it touches private data, that it passes data or a reference on into another record, and that it switches on a delivery outside the organization.
+Calls are linked where one writes a record that a later one names, and #n("sc.worlds") sampled worlds score where private data reaches an outside delivery through more than one agent.
+Step 1's group monitor then reads the agents on the top #n("sc.groups") paths, and the fleet is flagged when any of them scores at least #n("sc.threshold").
+On B's fleets (#n("sc.same.fleets") of #n("sc.curve.fleets") identical) it flags the split attack in #n("sc.split.curve") judgments, against #n("sc.b.split") explorations for B's graph explorer (@fig-flow).
+#claim("the flow graph beats B on B's own fleets", ("sc.split.curve", "sc.b.split", "sc.same.fleets", "sc.curve.fleets"), (c, b, s, z) => c > b and s == z)
+It keeps flagging past B's range: #n("sc.split.o8") at overlap 8, #n("sc.split.o16") at overlap 16, and #n("sc.split.n1600") in fleets of #n("sc.agents.n1600") agents.
+It never flags an honest fleet (#n("sc.honest")).
+#claim("the flow graph never flags an honest fleet", ("sc.honest",), h => h == 0)
+In every attack judgment the group the judge scores highest is exactly the three colluders (#n("sc.judge.colluders")), and attack fleets score at least #n("sc.judge.attack.min") against at most #n("sc.judge.honest.max") for honest ones; the two passes agree on #n("sc.agree") fleets (@tab-flow).
+#claim("the judge's top group is always the colluders", ("sc.judge.colluders",), c => c == 1)
+#claim("attack and honest judge scores don't overlap", ("sc.judge.attack.min", "sc.judge.honest.max"), (a, h) => a > h)
+Each group the judge reads is about #n("sc.judge.chars") characters, against #n("sc.log.chars") for the whole log of a 100-team fleet, and labelling costs #n("sc.usd.base") per 100-team fleet and #n("sc.usd.largest") at #n("sc.agents.n1600") agents.
+#todo[caveats: question wording tuned on layout 0 at overlap 4; one generator with two kinds of honest team; paths must cross agents, so solo attacks are out of scope; B was not run on the scaling arm]
+
+#figure(
+  data-figure("sc-figure", width: 100%),
+  caption: [Experiment C: the flow graph with Step 1's group judge (#n("sc.judgments") judgments: #n("sc.fleets") fleets, each judged #n("sc.passes") times). Left: share of judgments that flag the fleet at 303 agents as overlap grows, with B's graph explorer and the explorer without a graph (@fig-graph) on the same fleets; shaded, overlaps beyond those B was run at. Right: the judge's score on each judgment at overlap 4 as the fleet grows; dashed, the flag threshold.],
+) <fig-flow>
+
+#figure(
+  data-table("sc-table"),
+  caption: [Experiment C by fleet: split attacks caught by B's graph explorer (its explorations) and by the flow graph, honest fleets falsely flagged (out of four layouts × two passes), the range of judge scores, and the Jev labelling cost of one fleet.],
+) <tab-flow>
+
 = Discussion and Limitations
 #todo[what the result does and does not establish]
 
