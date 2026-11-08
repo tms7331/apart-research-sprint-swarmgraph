@@ -14,4 +14,5 @@ logs/scaling/raw_calls/
 logs/scaling_smoke/
 logs/scaling/episodes/
 logs/scaling_graph/
-logs/scaling_graph_curve/
+logs/scaling_graph_curve/episodes/
+logs/scaling_graph_curve/raw_calls/
