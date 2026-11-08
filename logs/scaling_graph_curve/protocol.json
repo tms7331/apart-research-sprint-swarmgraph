@@ -1,0 +1,28 @@
+{
+  "experiment": "B curve",
+  "honest_teams": 100,
+  "overlaps": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    4
+  ],
+  "layout_variants": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "run_types": [
+    [
+      "split_attack",
+      "split"
+    ],
+    [
+      "honest_authorized",
+      "split"
+    ]
+  ]
+}
