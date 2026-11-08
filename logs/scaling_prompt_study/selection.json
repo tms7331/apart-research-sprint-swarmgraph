@@ -1,0 +1,26 @@
+{
+  "at": "2026-11-08T18:45:02.225940+00:00",
+  "candidate": "combined",
+  "primary_counts": {
+    "control": {
+      "correct": 14,
+      "false_alarms": 0,
+      "n": 24
+    },
+    "policy": {
+      "correct": 18,
+      "false_alarms": 0,
+      "n": 24
+    },
+    "search": {
+      "correct": 21,
+      "false_alarms": 0,
+      "n": 24
+    },
+    "combined": {
+      "correct": 24,
+      "false_alarms": 0,
+      "n": 24
+    }
+  }
+}

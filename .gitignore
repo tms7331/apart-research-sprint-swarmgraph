@@ -20,3 +20,5 @@ logs/scaling_flow/episodes/
 logs/scaling_flow/raw_calls/
 logs/scaling_flow/jev_cache/
 logs/scaling_flow_smoke/
+logs/scaling_prompt_study/episodes
+logs/scaling_prompt_study/raw_calls/
