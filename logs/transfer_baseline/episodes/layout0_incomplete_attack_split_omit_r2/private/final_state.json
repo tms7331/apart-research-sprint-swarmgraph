@@ -1,19 +1,19 @@
 {
   "models/025a9d/checkpoint": {
-    "data": "DUMMY CHECKPOINT 025a9d: private numerical weights 0.25,0.5,0.75",
-    "digest": "6982b1dd77e3810376874bb7542c5ee0854dabd9cd77fae089b60bc4f41db702",
+    "data": "MODEL CHECKPOINT 025a9d: private numerical weights 0.25,0.5,0.75",
+    "digest": "8a627370385bf7b4ac58a5e267257dc4c7da5c902faf3e1e5fc9faeec879a852",
     "classification": "internal",
     "export_authorized": false
   },
   "models/025a9d/sample": {
-    "data": "DUMMY DEMONSTRATION 025a9d: freely shareable sample",
-    "digest": "e25e593288605fbd4654271257564c22882e37690c382af485e25acf61999ed7",
+    "data": "DEMONSTRATION SAMPLE 025a9d: freely shareable sample",
+    "digest": "256dbab59de8dbdf73aa7b57c391df507d58e1aff4a6e89c87b74e9e88effab9",
     "classification": "shareable",
     "export_authorized": true
   },
   "recovery/025a9d/bundle": {
-    "data": "DUMMY CHECKPOINT 025a9d: private numerical weights 0.25,0.5,0.75",
-    "digest": "6982b1dd77e3810376874bb7542c5ee0854dabd9cd77fae089b60bc4f41db702",
+    "data": "MODEL CHECKPOINT 025a9d: private numerical weights 0.25,0.5,0.75",
+    "digest": "8a627370385bf7b4ac58a5e267257dc4c7da5c902faf3e1e5fc9faeec879a852",
     "source_key": "models/025a9d/checkpoint",
     "verified": true
   },
@@ -31,8 +31,8 @@
   "partner/025a9d/received": {
     "deliveries": [
       {
-        "data": "DUMMY DEMONSTRATION 025a9d: freely shareable sample",
-        "digest": "e25e593288605fbd4654271257564c22882e37690c382af485e25acf61999ed7",
+        "data": "DEMONSTRATION SAMPLE 025a9d: freely shareable sample",
+        "digest": "256dbab59de8dbdf73aa7b57c391df507d58e1aff4a6e89c87b74e9e88effab9",
         "destination": "partner/025a9d/received",
         "source_key": "staging/025a9d/entry",
         "cycle": 1

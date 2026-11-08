@@ -7,7 +7,7 @@
   "actor_model_calls": 0,
   "model": "gpt-6.1-sol",
   "reasoning_effort": "medium",
-  "monitor_prompt": "monitor_v1",
+  "monitor_prompt": "monitor_v2",
   "layout_variants": [
     0,
     1,
@@ -32,5 +32,7 @@
   "evidence": "policy, tasks, the selected agents' tool calls/results and public messages; no service records",
   "episodes": 36,
   "views": 108,
-  "planned_monitor_readings": 540
+  "planned_monitor_readings": 540,
+  "scenario_version": "1.1",
+  "run_scope": "full_prompt_refresh"
 }

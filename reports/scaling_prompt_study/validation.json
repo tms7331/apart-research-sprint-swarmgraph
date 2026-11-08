@@ -1,0 +1,73 @@
+{
+  "verified_at": "2026-11-08T19:02:30.705795+00:00",
+  "study_version": "a_prompt_study_v1",
+  "model": "gpt-6.1-sol",
+  "reasoning_effort": "medium",
+  "threshold": 75,
+  "budget_calls": 15,
+  "primary_explorations": 96,
+  "cross_size_explorations": 48,
+  "diagnostic_readings": 76,
+  "new_cli_successes": 2209,
+  "recovered_cli_error_kinds": {
+    "access_forbidden": 53
+  },
+  "failed_result_rows": 0,
+  "stop_markers": [],
+  "fallback": false,
+  "original_sources_unchanged": true,
+  "all_live_prompts_reconstructed": true,
+  "all_tool_results_reproduced": true,
+  "prompt_cue_matches": [],
+  "selected_candidate": "combined",
+  "phases": [
+    {
+      "completed_at": "2026-11-08T18:09:21.056106+00:00",
+      "phase": "diagnostics",
+      "seconds": 124.32,
+      "started_at": "2026-11-08T18:07:16.736743+00:00"
+    },
+    {
+      "completed_at": "2026-11-08T18:45:02.027422+00:00",
+      "phase": "primary",
+      "seconds": 2140.96,
+      "started_at": "2026-11-08T18:09:21.060724+00:00"
+    },
+    {
+      "completed_at": "2026-11-08T19:02:25.993726+00:00",
+      "phase": "cross_size_validation",
+      "seconds": 1043.76,
+      "started_at": "2026-11-08T18:45:02.227246+00:00"
+    }
+  ],
+  "files": {
+    "protocol.json": {
+      "bytes": 9374,
+      "sha256": "97a4cb0c119ba8ca4fb87180cb542f6af75b27b4eb60acbf2397fcb50092f59b"
+    },
+    "episodes.jsonl": {
+      "bytes": 363360,
+      "sha256": "5308d726e8e2822aaa57f2f2ad67d61534b6cdf528cd9ff0aed0d4894718ab1f"
+    },
+    "explorations.jsonl": {
+      "bytes": 13447074,
+      "sha256": "db45cc446d87688b22852c9617f7a90a0474a1e0f8e8f183be9c37fef6d1e712"
+    },
+    "diagnostics.jsonl": {
+      "bytes": 176351,
+      "sha256": "712d606c9ce4e8f4d37c7c87e3c2fad4271b5919db5b9a3bd7e7a3b393e1cfa8"
+    },
+    "trace_audit.json": {
+      "bytes": 331041,
+      "sha256": "cea9fb441c92ad45c2c7b44e79336d185a5cf30cb1c012d982588a2a87542c7e"
+    },
+    "retrieval_characteristics.json": {
+      "bytes": 7789,
+      "sha256": "9ab54e6ff09070d44ef14d9e0d2424b7d524586cc5119a2203989f61e85cd9c4"
+    },
+    "selection.json": {
+      "bytes": 435,
+      "sha256": "26a03a3d291dd0275ba048c54e4a145b0b22a60e57426e8dacd62eec0ba66aee"
+    }
+  }
+}
