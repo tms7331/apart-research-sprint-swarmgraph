@@ -43,7 +43,7 @@
 // --- Title -----------------------------------------------------------------------------------------------------
 #page(margin: (x: 2.2cm, y: 2cm))[
   #align(left + horizon)[
-    #text(size: 34pt, weight: "bold")[Catching Attacks Split Across a Fleet of AI Agents]
+    #text(size: 34pt, weight: "bold")[Follow the Data:\ Catching Split Attacks in Agent Swarms]
     #v(0.2em)
     #line(length: 5cm, stroke: 2pt + orange)
     #v(0.6em)

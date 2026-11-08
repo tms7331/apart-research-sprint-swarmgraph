@@ -4,7 +4,7 @@
 #import "lib.typ": *
 
 #show: apart.with(
-  title: [Who Should a Monitor Read Together?],
+  title: [Follow the Data:\ Catching Split Attacks in Agent Swarms],
   authors: (
     (name: [Thomas Redfern], affiliation: [Unaffiliated]),
   ),
