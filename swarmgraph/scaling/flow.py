@@ -45,7 +45,7 @@ from .explorer import Log
 from .fleet import generate_fleet_episode
 
 LABEL_VERSION = "flow_labels_v1"
-JUDGE_VERSION = "flow_judge_v1"
+JUDGE_VERSION = "flow_judge_v2"
 WORLDS, KEEP, TOP_GROUPS, THRESHOLD = 400, 0.5, 3, 75
 GROUPS_LOG, JUDGMENTS_LOG = "flow_groups.jsonl", "flow_judgments.jsonl"
 KEY = re.compile(r"[a-z_]+/[0-9a-f]{6}/[a-z_]+")
