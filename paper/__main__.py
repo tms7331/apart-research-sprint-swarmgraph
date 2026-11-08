@@ -61,6 +61,10 @@ def main(
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["watch"]:
         return watch_main(argv[1:], paper_dir)
+    if argv[:1] == ["slides"]:
+        from paper.slides import main as slides_main
+
+        return slides_main(argv[1:], paper_dir)
     parser = argparse.ArgumentParser(
         prog="build-paper",
         description="Build paper/paper.typ: fill in its numbers, tables and figures from the logs, compile "
