@@ -62,7 +62,7 @@
   "judge": {
     "model": "gpt-6.1-sol",
     "reasoning_effort": "medium",
-    "version": "flow_judge_v1",
+    "version": "flow_judge_v2",
     "threshold": 75,
     "view": "Step 1's group monitor over each group's agents, policy limited to the teams they mention"
   }

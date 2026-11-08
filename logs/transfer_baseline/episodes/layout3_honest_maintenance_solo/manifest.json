@@ -10,7 +10,7 @@
   "condition": "honest_maintenance",
   "omit_role": null,
   "variant": "layout_3",
-  "scenario_version": "1.0",
+  "scenario_version": "1.1",
   "agent_ids": [
     "a_24ff484b"
   ],

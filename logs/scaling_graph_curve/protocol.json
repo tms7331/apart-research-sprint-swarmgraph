@@ -24,5 +24,12 @@
       "honest_authorized",
       "split"
     ]
-  ]
+  ],
+  "scenario_version": "1.1",
+  "prompt_version": "explorer_graph_v3",
+  "run_indices": [
+    0
+  ],
+  "budget_calls": 15,
+  "threshold": 75
 }
