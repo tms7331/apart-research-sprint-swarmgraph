@@ -105,6 +105,25 @@ def graph_curve_cases() -> list[dict]:
             for overlap in s["overlaps"] for variant in s["layout_variants"] for condition, layout in s["run_types"]]
 
 
+# Experiment C (flow.py): Experiment B's 48 curve fleets, plus a scaling arm past B's range: more cross-team
+# overlap at 100 honest teams, and bigger fleets at overlap 4. Every point has four layouts, each an attack fleet
+# and its honest twin. The curve's fleets are byte-identical to B's (same case IDs, same generator).
+FLOW_DESTINATION = REPOSITORY / "logs/scaling_flow"
+FLOW_SMOKE_DESTINATION = REPOSITORY / "logs/scaling_flow_smoke"
+FLOW_SCALING = {"points": ((100, 8), (100, 16), (400, 4), (1600, 4)), "layout_variants": (0, 1, 2, 3),
+                "run_types": GRAPH_CURVE["run_types"]}
+FLOW_SMOKE = ("layout0_n100_overlap4_split_attack_split", "layout0_n100_overlap4_honest_authorized_split",
+              "layout0_n400_overlap4_split_attack_split", "layout0_n400_overlap4_honest_authorized_split")
+
+
+def flow_cases(smoke: bool = False) -> list[dict]:
+    s = FLOW_SCALING
+    scaling = [case(variant, n, condition, layout, overlap) for n, overlap in s["points"]
+               for variant in s["layout_variants"] for condition, layout in s["run_types"]]
+    cases = graph_curve_cases() + scaling
+    return [c for c in cases if c["case_id"] in FLOW_SMOKE] if smoke else cases
+
+
 def graph_sandbox_cases() -> list[dict]:
     s = GRAPH_SANDBOX
     return [case(s["layout_variant"], s["honest_teams"], condition, layout, overlap)

@@ -4,6 +4,8 @@
     uv run python -m swarmgraph.scaling investigate [--smoke]   # Experiment A: the missing investigations, then its report
     uv run python -m swarmgraph.scaling judge [--smoke]         # all-logs reference: the missing readings, then its report
     uv run python -m swarmgraph.scaling report [--smoke]        # both reports
+    uv run python -m swarmgraph.scaling flow --run-index 0,1    # Experiment C (flow.py): fleets, Jev labels, judge
+    uv run python -m swarmgraph.scaling flow-report [--smoke]   # Experiment C's flag rates
 
 Full run: logs/scaling/ (84 episodes; 3 investigations each), reports in reports/scaling_investigator/ and
 reports/scaling_all_logs/. Smoke run (--smoke): logs/scaling_smoke/ (21 episodes; 1 investigation each),
@@ -139,10 +141,32 @@ async def explore_graph(cases: list[str], plain: bool, concurrency: int = 8, fal
     _stopped(client)
 
 
+async def flow_run(smoke: bool, run_indices: list[int], cases: list[str], concurrency: int, fallback: bool,
+                   retry_forbidden: bool, jev_workers: int) -> None:
+    """Experiment C: generate the missing fleets, label them with Jev (OpenRouter), simulate, then judge each pass."""
+    from swarmgraph.transfer_baseline.openrouter import load_key
+
+    from . import flow, jev
+    from .design import FLOW_DESTINATION, FLOW_SMOKE_DESTINATION
+    destination = FLOW_SMOKE_DESTINATION if smoke else FLOW_DESTINATION
+    key = load_key()
+    if not key:
+        raise RuntimeError("Experiment C's labels need OPENROUTER_KEY in the environment or .env (Jev runs only on OpenRouter)")
+    labeler = jev.JevClient(destination / "jev_cache", key, workers=jev_workers)
+    client = MonitorClient(destination / "raw_calls", concurrency,
+                           fallback=fallback_client(destination / "raw_calls", fallback, concurrency),
+                           retry_forbidden=retry_forbidden)
+    _stopped(client)
+    await flow.run(destination, client, labeler, run_indices, smoke, cases)
+    print(flow.summary(destination))
+    print(json.dumps({"jev_paid_calls": labeler.paid_calls, "jev_usd": round(labeler.usd, 4)}))
+    _stopped(client)
+
+
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("generate", "investigate", "explore", "judge", "report", "graph-sandbox",
-                                            "explore-graph", "graph-curve"))
+                                            "explore-graph", "graph-curve", "flow", "flow-report"))
     parser.add_argument("--curve", action="store_true", help="explore-graph: the curve's fleets, not the sandbox")
     parser.add_argument("--plain", action="store_true", help="explore-graph: A's explorer (no graph tools) on the graph fleets")
     parser.add_argument("--fallback", action="store_true",
@@ -153,12 +177,23 @@ def main(argv=None) -> None:
                         help="explore/explore-graph: retry generic HTTP 403s after a shared 60-second cooldown; explicit safety/auth/usage failures still stop")
     parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading or investigation each")
     parser.add_argument("--concurrency", type=int, default=8)
+    parser.add_argument("--jev-workers", type=int, default=32, help="flow: parallel Jev requests")
     parser.add_argument("--min-interval", type=float, default=0.0,
                         help="seconds between call starts (2.0 = at most 30 calls a minute); 403s followed a burst of ~74/minute")
     args = parser.parse_args(argv)
     destination = SMOKE_DESTINATION if args.smoke else DESTINATION
     if args.command in ("graph-sandbox", "graph-curve"):
         graph_sandbox(curve=args.command == "graph-curve")
+        return
+    if args.command == "flow":
+        asyncio.run(flow_run(args.smoke, [int(r) for r in args.run_index.split(",")],
+                             [c for c in args.cases.split(",") if c], args.concurrency, args.fallback,
+                             args.retry_forbidden, args.jev_workers))
+        return
+    if args.command == "flow-report":
+        from . import flow
+        from .design import FLOW_DESTINATION, FLOW_SMOKE_DESTINATION
+        print(flow.summary(FLOW_SMOKE_DESTINATION if args.smoke else FLOW_DESTINATION))
         return
     if args.command == "explore-graph":
         asyncio.run(explore_graph([c for c in args.cases.split(",") if c], args.plain, args.concurrency, args.fallback,

@@ -16,3 +16,7 @@ logs/scaling/episodes/
 logs/scaling_graph/
 logs/scaling_graph_curve/episodes/
 logs/scaling_graph_curve/raw_calls/
+logs/scaling_flow/episodes/
+logs/scaling_flow/raw_calls/
+logs/scaling_flow/jev_cache/
+logs/scaling_flow_smoke/
