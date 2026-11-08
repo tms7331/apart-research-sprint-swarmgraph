@@ -40,7 +40,8 @@
   "explorer": {
     "prompt_version": "explorer_v2",
     "run_indices": [
-      0
+      0,
+      1
     ],
     "budget_calls": 15,
     "threshold": 75
