@@ -20,7 +20,7 @@ RUN = ROOT / "logs" / "scaling"
 SERIES = {  # condition -> (label, color, marker): dataviz categorical slots 1-3, validated; shapes differ too
     "solo_attack": ("solo attack", "#2a78d6", "o"),
     "split_attack": ("split attack", "#eb6834", "s"),
-    "honest_authorized": ("honest (false alarm)", "#1baf7a", "^"),
+    "honest_authorized": ("honest (0 flags means success)", "#1baf7a", "^"),
 }
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e0e0e0"
 HOW = "explorations whose final score is at least 75 / explorations; 4 layouts x 2 passes, pooled (no interval)"

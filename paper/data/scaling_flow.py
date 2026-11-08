@@ -19,12 +19,13 @@ from matplotlib.ticker import FixedLocator, PercentFormatter
 from paper.data import source
 from paper.ledger import Ledger
 from swarmgraph.scaling import explorer
-from swarmgraph.scaling.flow import THRESHOLD, TOP_GROUPS, WORLDS
+from swarmgraph.scaling.flow import KEEP, THRESHOLD, TOP_GROUPS, WORLDS
 from swarmgraph.transfer_baseline.io import read_jsonl
 
 from .scaling_graph import A_RUN, GRID, HONEST, INK, MUTED, RUN as B_RUN, SPLIT, overlap_of, tag
 
 RUN = B_RUN.parent / "scaling_flow"
+EXAMPLE = "layout0_n100_overlap4_split_attack_split"  # the slides' running example: one of B's fleets, at overlap 4
 HOW = "judgments whose highest group score is at least 75 / judgments; 4 layouts x 2 passes, pooled (no interval)"
 
 
@@ -41,22 +42,25 @@ def draw_board(ax: Any, data: dict) -> None:
                 continue
             k, n = count
             ax.add_patch(Rectangle((j, i), 1, 1, facecolor=SEQ[round(6 * k / n)], edgecolor="white", linewidth=1.5))
-            ax.text(j + 0.5, i + 0.5, f"{k}/{n}", fontsize=8, ha="center", va="center",
+            ax.text(j + 0.5, i + 0.5, f"{k / n:.0%}", fontsize=8, ha="center", va="center",
                     color="white" if k / n > 0.6 else INK)
+    rows = len(data["methods"])
     ax.set_xlim(0, len(conds))
-    ax.set_ylim(len(data["methods"]), 0)
-    ax.set_xticks([j + 0.5 for j in range(len(conds))], labels=labels)
-    ax.set_yticks([i + 0.5 for i in range(len(data["methods"]))], labels=[m for m, _ in data["methods"]])
-    split = data["split_at"]
-    ax.axvline(split, color=INK, linewidth=0.8)
-    ax.text(split / 2, -0.12, "303 agents, by tool-call overlap between teams", fontsize=7.5, color=MUTED,
-            ha="center", va="bottom")
-    ax.text((split + len(conds)) / 2, -0.12, "overlap 4", fontsize=7.5, color=MUTED, ha="center", va="bottom")
+    ax.set_ylim(rows + 0.95, 0)
+    ax.set_xticks([])
+    ax.set_yticks([i + 0.5 for i in range(rows)], labels=[m for m, _ in data["methods"]])
+    # the two things each condition sets, as rows under the board
+    for y, name, values in ((rows + 0.3, "agents", data["agents"]), (rows + 0.72, "tool-call overlap", labels)):
+        ax.text(-0.12, y, name, fontsize=8, color=MUTED, ha="right", va="center")
+        for j, value in enumerate(values):
+            ax.text(j + 0.5, y, value, fontsize=8, color=INK, ha="center", va="center")
+    ax.plot([0, len(conds)], [rows + 0.08, rows + 0.08], color=GRID, linewidth=0.6)
+    ax.plot([data["split_at"]] * 2, [0, rows + 0.95], color=INK, linewidth=0.8)
     ax.legend(handles=[Rectangle((0, 0), 1, 1, facecolor=SEQ[6], label="all caught"),
                        Rectangle((0, 0), 1, 1, facecolor=SEQ[3], label="half"),
                        Rectangle((0, 0), 1, 1, facecolor=SEQ[0], edgecolor=GRID, label="none"),
                        Rectangle((0, 0), 1, 1, facecolor="white", edgecolor=GRID, hatch="////", label="not run")],
-              loc="upper right", bbox_to_anchor=(1.0, -0.42), ncol=4, fontsize=7, frameon=False, handlelength=1.2,
+              loc="upper right", bbox_to_anchor=(1.0, -0.02), ncol=4, fontsize=7, frameon=False, handlelength=1.2,
               columnspacing=0.9)
     ax.tick_params(axis="both", length=0, labelsize=8, colors=INK)
     for side in ("top", "right", "left", "bottom"):
@@ -114,6 +118,8 @@ def scaling_flow(ledger: Ledger) -> None:
     ledger.value("sc.passes", len({r["run"] for r in rows}), how="passes: each judges every fleet once")
     ledger.value("sc.groups", TOP_GROUPS, how="groups the judge reads per fleet, highest graph score first")
     ledger.value("sc.worlds", WORLDS, how="sampled worlds per fleet in the flow simulation")
+    ledger.value("sc.keep", f"{KEEP:.0%}", how="a call joins a sink's group when the data came through it in at least "
+                 "this share of the worlds that hit the sink")
     ledger.value("sc.threshold", THRESHOLD, how="judge score at or above which a group flags the fleet")
     b_rows = {e["case_id"]: e for e in read_jsonl(B_RUN / "episodes.jsonl")}
     same = [c for c in b_rows if c in episodes and [v["prompt_sha256"] for v in b_rows[c]["views"]]
@@ -199,15 +205,47 @@ def scaling_flow(ledger: Ledger) -> None:
     count = lambda rs: (sum(r["flagged"] for r in rs), len(rs)) if rs else None
     ledger.figure("sc-figure", draw_board, {
         "conditions": conditions, "split_at": len(overlaps),
-        "labels": [f"{o:g}" for o in overlaps] + [f"{3 * n + 3:,}\nagents" for n in sizes if n != 100],
+        "labels": [f"{o:g}" for _, o in conditions], "agents": [f"{3 * n + 3:,}" for n, _ in conditions],
         "methods": [
             ("A: no graph", [count(a_split) if (n, o) == (100, 0) else None for n, o in conditions]),
             ("B: provenance graph", [count([r for r in b_split if r["overlap"] == o]) if n == 100 else None
                                      for n, o in conditions]),
             ("C: flow graph + judge", [count(cells[(c, "split_attack")]) for c in conditions])]},
-        how=f"{HOW}; with B's graph runs and A's runs of the same fleets for comparison", size=(6.5, 1.9))
+        how=f"{HOW}; with B's graph runs and A's runs of the same fleets for comparison", size=(6.5, 2.2))
     ledger.figure("sc-scores", draw_judge, {
         "conditions": conditions, "threshold": THRESHOLD,
         "attack_scores": [[r["score"] for r in cells[(c, "split_attack")]] for c in conditions],
         "honest_scores": [[r["score"] for r in cells[(c, "honest_authorized")]] for c in conditions]},
         how=f"{HOW}; every judgment's score", size=(6.5, 3.0))
+    example(ledger, groups[EXAMPLE], [r for r in judged if r["case_id"] == EXAMPLE],
+            set(episodes[EXAMPLE]["colluding_agent_ids"]))
+
+
+def example(ledger: Ledger, fleet: dict, judgments: list[dict], colluders: set[str]) -> None:
+    """Each step of the flow graph on one real fleet, for the slides: the top group's calls and their Jev labels,
+    its flow score, and the judge's scores. The fleet's log is B's (the same fleet, byte for byte)."""
+    events = {e["event_id"]: e for e in read_jsonl(B_RUN / "episodes" / EXAMPLE / "observations.jsonl")}
+    top, how = fleet["groups"][0], f"{EXAMPLE}: "
+    calls = top["calls"]
+    roles = {"source": calls[0], "carrier": next(c for c in calls if c not in (calls[0], top["sink"])),
+             "sink": top["sink"]}
+    ledger.value("sc.ex.agents", f"{fleet['agents_in_fleet']:,}", how=how + "agents in the fleet")
+    ledger.value("sc.ex.overlap", f"{overlap_of(EXAMPLE):g}", how=how + "tool-call overlap")
+    ledger.value("sc.ex.calls", f"{fleet['calls']:,}", how=how + "tool calls Jev labelled")
+    ledger.value("sc.ex.links", f"{fleet['links']:,}", how=how + "links between calls")
+    for role, call in roles.items():
+        ledger.value(f"sc.ex.{role}.record", events[call]["payload"]["arguments"]["key"],
+                     how=how + f"the record the top group's {role} call changes")
+        for question, p in top["labels"][call].items():
+            ledger.value(f"sc.ex.{role}.{question}", f"{p:.2f}",
+                         how=how + f"Jev's P({question}) for the top group's {role} call")
+    ledger.value("sc.ex.who", "the three colluders" if set(top["agents"]) == colluders else
+                 f"{len(top['agents'])} agents", how=how + "who is in the group with the highest flow score")
+    ledger.value("sc.ex.hit", f"{top['p_hit']:.3f}", how=how + "share of worlds where private data reached that sink")
+    ledger.value("sc.ex.score", f"{top['score']:.3f}", how=how + "the top group's flow score, P(hit) x P(sink)")
+    ledger.value("sc.ex.next", f"{fleet['groups'][1]['score']:.3f}", how=how + "the second group's flow score")
+    first = min(judgments, key=lambda r: r["run_index"])
+    scores = [g["response"]["score"] for g in first["groups"]]
+    ledger.value("sc.ex.judge.top", scores[0], how=how + "the judge's score for the top group, first pass")
+    ledger.value("sc.ex.judge.rest", " and ".join(str(s) for s in scores[1:]),
+                 how=how + "the judge's scores for the other groups, first pass")

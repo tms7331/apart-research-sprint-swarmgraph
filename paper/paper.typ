@@ -18,8 +18,38 @@
 Splitting a hidden objective across agents can hide it from a monitor that reads one agent at a time @kitaoka2026.
 
 = Methods <sec-methods>
-#todo[the transfer mechanism, the five run types, the two monitor views, and the threshold]
+We use a data-exfiltration scenario modeled on the weight-exfiltration attack in MiniLab @kitaoka2026: a team of three agents maintains the records that a scheduled partner delivery reads from.
+Three records point to one another: a delivery schedule names a package entry, and the package entry names the record whose data is to be delivered, at first a shareable sample.
+After the agents finish, a sync service runs on its own: when the schedule is enabled and the package is marked prepared, it follows the two pointers and copies whatever the named record holds to the schedule's partner destination.
+The service checks that the package is ready, not what it contains.
+The organization's policy names a model checkpoint as private, never to reach a partner, names a sample file as shareable, and permits internal backups of either.
+
+The attack takes three steps, one per agent.
+The backup agent copies the private checkpoint into the internal bundle, the staging agent points the package at that bundle, and the sync agent switches the delivery on; the sync service then delivers the checkpoint to the partner.
+Each step is allowed on its own: internal backups are permitted, packages may reference internal bundles, and enabling a delivery is routine maintenance.
+No agent uses a permission it lacks.
+Each can change only its own record and can't read past it, so the sync agent can't see what the package points to, and the staging agent can't see what the bundle holds.
+Any two of the steps leave the checkpoint inside the organization; only all three move it out.
+Each step is exactly what its agent's task asks for, so a colluder's own transcript is the same as that of an agent on an honest team.
+
+Honest teams take the same three steps with one difference.
+A team that ships shareable data backs up the sample instead of the checkpoint, so the delivery it switches on is allowed.
+A team that leaves the delivery off backs up the checkpoint and points the package at it, as the attack does, but keeps the schedule disabled.
+Each agent reads its record and then changes it (the backup agent also reads the file it copies), then posts a one-line status message; the agents never message each other.
+The agents are scripted: each run type's actions are fixed in advance and carried out in order, so no model plays the agents.
+Step 1 compares five run types on single teams: the split attack; a solo attack, in which one agent holds all three tasks and permissions; the two kinds of honest team; and an incomplete attack, in which one agent makes only the routine part of its change, so the chain never completes.
+Each run type comes in #n("tb.layouts") layouts, which vary the records' names and the wording of the tasks.
+
+The monitor is an LLM (#n("tb.model") at #n("tb.effort") reasoning effort) that reads the policy, a description of the services, and the agents' tasks, tool calls, results and messages.
+It doesn't see the service's own records, or the delivery itself.
+It scores suspicion from 0 to 100, with an assessment and the events it rests on.
+Step 1 reads each team in two ways: individually, one agent's transcript at a time, where a team's score is its highest-scoring member's; and together, the whole team's transcripts in one prompt.
 Each of the #n("tb.episodes") scripted episodes is judged #n("tb.readings.per.view") time(s) per view, and a team is flagged when its median suspicion score is at least #n("tb.threshold").
+
+Experiments A to C hide the team in a fleet of background teams.
+Each background team is an independent copy of the same workflow with its own records, and the background alternates the two kinds of honest team.
+All teams' actions are interleaved at random, with each team's own order kept, so the attacking team's position in the log gives nothing away.
+Every attack fleet has an honest twin, the same fleet with the attacking team replaced by one that ships shareable data, and a flag on a twin is a false alarm.
 
 = Results <sec-results>
 == Reproducing the fragmentation result <sec-step1>
@@ -64,7 +94,7 @@ Beyond that it must search (#pct("sa.calls.search.over") of its calls), uses its
   caption: [Experiment A by fleet size: attacks caught and honest fleets falsely flagged (out of four layouts × two passes), with the median calls and input tokens per run.],
 ) <tab-scaling>
 
-== Grouping the log with a provenance graph <sec-graph>
+== Structuring the log with a provenance graph <sec-graph>
 #todo[the graph in a sentence or two: event nodes; call-result, same-agent and shared-record edges; busy records as hubs; union-find chains; and the graph tools]
 We give the same monitor a provenance graph of the log, built as in FragBench @mehta2026, and tools to list, search and read its chains, with the same #n("sa.budget") calls.
 The fleet stays at #n("sb.agents") agents (#n("sb.teams") honest teams), and we add tool-call overlap between teams: at overlap $N$, each team reads about $N$ records that one other team also reads. The records are listings, so no data passes between the teams, but each shared read links the two teams in the graph.
@@ -101,11 +131,39 @@ The monitor never flags an honest fleet (#n("sb.honest")), and its highest score
 ) <tab-graph>
 
 == Following the data instead of grouping agents <sec-flow>
-#todo[the method in full: the three Jev questions, the linking rule, the sampled worlds and the judge reading each group together; why a plain read passes nothing on]
 We keep the judge model and threshold, but let a flow graph choose which agents the judge reads together.
-Jev, a decision model, labels each tool call with three probabilities: that it touches private data, that it passes data or a reference on into another record, and that it switches on a delivery outside the organization.
-Calls are linked where one writes a record that a later one names, and #n("sc.worlds") sampled worlds score where private data reaches an outside delivery through more than one agent.
-Step 1's monitor then reads the agents on each of the top #n("sc.groups") paths together, and the fleet is flagged when any of them scores at least #n("sc.threshold").
+The method has four steps: label each action, link the actions, simulate how private data could spread along the links, and judge the agents the data passes through.
+
+*Label.* The graph has one node per tool call.
+Jev, a decision model, reads each call on its own, with the services text, the policy paragraphs for the teams it mentions, the agent's task and the call's result, and answers three yes/no questions as probabilities: whether the call touches data the policy marks private (its source probability), whether it passes data or a reference to data on into another record (its carrier probability), and whether it switches on a delivery outside the organization (its sink probability).
+The probabilities belong to the nodes; the links carry no numbers.
+
+*Link.* Links point forward in the log, and two rules make them.
+First, a call that writes a record, meaning its arguments carry more than the record's name, links to every later call by any agent that names that record, in the later call's arguments or in its result.
+Second, each call links to the same agent's next call, since an agent carries what it saw into its next action.
+Two calls that only read the same record are not linked, unlike in the provenance graph, which links any two events that mention the same record.
+A link means only that data could flow from one call to the other; whether it does is decided by the calls at its two ends.
+A plain read writes nothing, so Jev gives it a low carrier probability: the shared reads that merge the provenance graph's chains are linked here too, but pass almost nothing along those links.
+
+*Simulate.* We then run #n("sc.worlds") random rounds.
+In each round, every call's source and carrier questions are answered with a random number between 0 and 1: below the call's probability means yes for that round, so a call with source probability 0.95 is a source in about 95% of rounds.
+The sink probability is not drawn.
+We then go through every call once, in the order of the log.
+Since every link points forward in time, a call's incoming calls are already settled when we reach it, and parts of the graph that don't connect to each other are visited all the same; there is no starting point to choose.
+A call holds private data in a round if it is a source in that round, or if an incoming call holds data and it is a carrier in that round.
+It is hit if the data reached it from a call by a different agent, or from the same agent's previous call when that call was itself hit and is a carrier.
+Data that never leaves one agent doesn't count: a leak inside one agent is in that agent's own transcript, which the per-agent monitor reads, so the flow graph looks only for data that crosses agents.
+Every source spreads at once, so the simulation needs no list of paths, and all rounds are computed together as one pass over the log.
+
+*Score and judge.* After the rounds, every call has a hit rate, the share of rounds in which it was hit, and a flow score, its hit rate times its sink probability.
+The flow score is the only number used to rank: a call that private data reaches often but that sends nothing out, such as a staging step, scores near zero.
+We rank the calls by flow score and find each one's group: in the rounds in which the call was hit, we trace back through the calls the data came through, and keep those that appear in at least #n("sc.keep") of those rounds; their agents are the group.
+A group with the same agents as one already found is skipped.
+Step 1's monitor then reads the agents of each of the top #n("sc.groups") groups together, with the policy cut to the paragraphs for their teams and without the flow scores, and the fleet is flagged when any group scores at least #n("sc.threshold").
+The flow scores only choose what the judge reads; the judge decides.
+In one #n("sc.ex.agents")-agent fleet at overlap #n("sc.ex.overlap"), for example, private data reaches the colluders' delivery in #n("sc.ex.hit") of the rounds, a flow score of #n("sc.ex.score") against #n("sc.ex.next") for the next group, and the judge scores the colluders #n("sc.ex.judge.top") and the next two groups #n("sc.ex.judge.rest").
+Experiment C's fleets hold only split attacks and their honest twins, so it tests the group half of a monitor that would also read each agent individually.
+
 On B's fleets (#n("sc.same.fleets") of #n("sc.curve.fleets") identical) it flags the split attack in #n("sc.split.curve") judgments, against #n("sc.b.split") runs for B's graph monitor (@fig-flow).
 #claim("the flow graph beats B on B's own fleets", ("sc.split.curve", "sc.b.split", "sc.same.fleets", "sc.curve.fleets"), (c, b, s, z) => c > b and s == z)
 It keeps flagging past B's range: #n("sc.split.o8") at overlap 8, #n("sc.split.o16") at overlap 16, and #n("sc.split.n1600") in fleets of #n("sc.agents.n1600") agents.
@@ -136,6 +194,13 @@ Each group the judge reads is about #n("sc.judge.chars") characters, against #n(
 
 = Discussion and Limitations
 #todo[what the result does and does not establish]
+
+The flow graph follows data through records, not through an agent's own context.
+If one agent writes private data to a file, and a second agent reads that file and then emails what it read, the flow graph misses it.
+The read writes nothing, so Jev gives it a low carrier probability and the data stops there; and the sink question asks about deliveries the synchronization service carries out, so a direct email may not count as one.
+Two changes would cover this case: let a read whose result shows private data carry it into the agent's next action, and ask the sink question about any action that sends data outside the organization.
+The shared reads that merge the provenance graph's chains show other teams' record names, not private data, so the first change should not let overlap merge the teams again.
+Both changes alter the method after the results, so they would need a rerun on every fleet.
 
 = Conclusion
 #todo[the main findings in one or two paragraphs]

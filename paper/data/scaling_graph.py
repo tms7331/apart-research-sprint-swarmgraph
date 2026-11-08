@@ -171,6 +171,10 @@ def scaling_graph(ledger: Ledger) -> None:
     ledger.value("sb.agents", agents, how="agents in every fleet of the curve")
     ledger.value("sb.teams", episodes[rows[0]["case_id"]]["honest_teams"], how="honest teams in every fleet")
     ledger.value("sb.layouts", len({r["layout"] for r in rows}), how="layouts per overlap and run type")
+    ledger.value("sb.busy", graph.MAX_AGENTS_PER_RESOURCE,
+                 how="a record named by more agents than this counts as busy and links nothing (graph.py)")
+    ledger.value("sb.graph.tools", len(explorer.GRAPH_TOOLS) - len(explorer.TOOLS),
+                 how="tools the graph monitor has beyond Experiment A's")
     a_rows = {e["case_id"]: e for e in read_jsonl(A_RUN / "episodes.jsonl")}
     zero = [c for c in episodes if overlap_of(c) == 0]
     same = [c for c in zero if c in a_rows and [v["prompt_sha256"] for v in a_rows[c]["views"]]

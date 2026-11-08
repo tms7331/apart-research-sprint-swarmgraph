@@ -81,6 +81,9 @@ def transfer_baseline(ledger: Ledger) -> None:
     ledger.value("tb.readings", data["successful_readings"], how="successful judge readings")
     ledger.value("tb.readings.per.view", design["readings_per_view"], how="readings per monitor view")
     ledger.value("tb.threshold", threshold, how="the fixed flag threshold (MiniLab's 7.5 of 10)")
+    ledger.value("tb.model", design["model"], how="the monitor model (protocol.json)")
+    ledger.value("tb.effort", design["reasoning_effort"], how="the monitor's reasoning effort (protocol.json)")
+    ledger.value("tb.layouts", len(design["layout_variants"]), how="layouts per run type (protocol.json)")
     how = f"teams whose median score is at least {threshold} / teams with a score; teams pooled (no interval)"
     for key, conditions, score in (
         ("tb.solo.flagged", ("solo_attack",), "per_agent"),
