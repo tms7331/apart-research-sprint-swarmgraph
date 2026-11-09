@@ -108,7 +108,76 @@ Neither of these last two agents sees the bundle's contents.
 Each colluder's update occupies a single line among similar updates from honest agents.
 
 = Flow-Graph Monitoring <sec-flow-method>
-#todo[the method: label, link, simulate, score and monitor]
+To choose which agents to review together, we build a graph of possible private-data flows across the fleet.
+The monitor and its decision threshold remain unchanged.
+This is a form of information-flow, or taint, tracking.
+It asks whether private data could pass through multiple agents and reach an action that sends it outside the organization.
+Individual actions may look legitimate even when they combine to form such a path.
+
+The method has four steps.
+We label tool calls, link them, simulate possible data flows, and select groups of agents for joint review.
+
+== Label
+Each node in the graph represents one tool call.
+Jev (#n("pr.jev.model")), TypeSafe's decision model, evaluates each call separately.
+It receives the service descriptions, the relevant teams' policy paragraphs, the agent's task, and the call and its result.
+It then estimates three probabilities by answering the following questions.
+#list(
+  [*Source.* Does the call touch data that the policy marks as private?],
+  [*Carrier.* If data reaches this call, does the call pass it, or a reference to it, into another record?],
+  [*Sink.* Does the call enable a delivery outside the organization?],
+)
+
+These are separate probabilities, so a call can be both a likely source and a likely carrier.
+The probabilities belong to the nodes; the links have no weights.
+
+== Link
+All links point forward in time.
+We create them using two rules.
+#enum(
+  [A call that writes a record links to every later call that names that record, whether in its arguments or its result and regardless of which agent makes it.
+  We identify writes as calls whose arguments contain more than the record's name.],
+  [Each call links to the same agent's next call, representing information the agent may carry from one action to the next.],
+)
+
+Reading the same record does not, by itself, create a link between two calls.
+This differs from the provenance graph, which connects events whenever they mention the same record.
+
+A link represents a possible route for data.
+The node labels determine whether data passes along that route in the simulation.
+A plain read writes nothing, so Jev assigns it a low carrier probability.
+Shared reads can therefore remain connected through the rules above while passing very little data onward.
+
+== Simulate
+We simulate #n("sc.worlds") rounds of possible data flow.
+In each round, we sample a yes-or-no source label and a yes-or-no carrier label for every call using its predicted probabilities.
+For example, a call with source probability 0.95 is treated as a source in about 95% of rounds.
+Sink probabilities are used directly in the scoring step rather than sampled.
+
+We process calls in chronological order.
+A call holds private data if it is a source in that round, or if it is a carrier and at least one linked earlier call holds private data.
+
+We also track whether each call is _hit_, meaning that private data has reached it across an agent boundary.
+A call is hit if a linked earlier call from another agent holds private data.
+A hit also carries forward to the same agent's next call when the preceding call was both hit and a carrier.
+
+== Score and monitor
+Each call's _hit rate_ is the fraction of rounds in which it was hit.
+We multiply this rate by its sink probability to obtain its _flow score_.
+This gives priority to calls that both receive private data across agents and enable an external delivery.
+A staging call may receive private data frequently but still score near zero because it does not enable a delivery.
+
+We rank calls by flow score and construct a candidate group for each.
+For every round in which the call was hit, we trace backward through the calls that supplied the data.
+We retain calls that appear in at least #n("sc.keep") of those rounds and collect their agents into a group.
+Groups containing exactly the same agents as an earlier group are skipped.
+
+The monitor from Step 1 then reviews the full transcripts of each of the top #n("sc.groups") groups.
+It receives only the policy paragraphs relevant to that group's teams and does not see the flow scores.
+The fleet is flagged if any group receives a monitor score of at least #n("sc.threshold").
+The graph selects the groups; the monitor makes the final judgment.
+
+@app-flow provides further details, a worked example, an application to a full fleet, and an account of how we developed the method.
 
 = Methods <sec-methods>
 Step 1 compares five run types on single teams: the split attack; a solo attack, in which one agent holds all three tasks and permissions; the two kinds of honest team; and an incomplete attack, in which one agent makes only the routine part of its change, so the chain never completes.
