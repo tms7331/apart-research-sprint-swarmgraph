@@ -1,3 +1,0 @@
-{"completed_at":"2026-11-08T18:09:21.056106+00:00","phase":"diagnostics","seconds":124.32,"started_at":"2026-11-08T18:07:16.736743+00:00"}
-{"completed_at":"2026-11-08T18:45:02.027422+00:00","phase":"primary","seconds":2140.96,"started_at":"2026-11-08T18:09:21.060724+00:00"}
-{"completed_at":"2026-11-08T19:02:25.993726+00:00","phase":"cross_size_validation","seconds":1043.76,"started_at":"2026-11-08T18:45:02.227246+00:00"}
