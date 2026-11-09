@@ -502,11 +502,28 @@ The shared reads that merge the provenance graph's chains show other teams' reco
 Both changes alter the method after the results, so they would need a rerun on every fleet.
 
 = Conclusion
-#todo[the main findings in one or two paragraphs]
+Detecting a split attack requires finding which agents to review together.
+In our controlled scenario, searching the raw log becomes unreliable as the fleet grows, while provenance-based grouping breaks down as shared records merge unrelated teams into large chains.
+
+Our flow graph uses a decision model to label tool calls, links calls through their record references, and simulates possible data flows to identify candidate groups.
+With the same monitor and decision threshold, it detects the split attack in #n("sc.split") judgments with no false alarms (#n("sc.honest")), in fleets of up to #n("sc.agents.n1600") agents.
+The graph narrows the monitor's task from searching the full fleet to reviewing a few groups of agents.
 
 #unnumbered[Code and Data]
-#todo[the repository link, with data in `logs/`]
-The paper build (`paper/`) is preexisting work, ported from our earlier Apart hackathon project for the AI Collusion Research Sprint (#link("https://github.com/carver/apart-research-collusion-sprint-2026")[github.com/carver/apart-research-collusion-sprint-2026]).
+The code, experiment logs, and paper build are available in the #link("https://github.com/tms7331/apart-research-sprint-swarmgraph")[project repository].
+The `logs/` directory contains Step 1's episodes and monitor readings.
+It also contains the fleets and complete monitor runs for Experiments A and B, including tool calls and results, and the selected groups and judgments for Experiment C.
+
+Fleet generation is deterministic, so the fleets can be reproduced from the code.
+The committed logs include Jev labels for every group reviewed by the monitor.
+The full Jev cache is not included, so relabeling a fleet requires new Jev calls.
+
+The paper's build system is preexisting work, ported from our earlier #link("https://github.com/carver/apart-research-collusion-sprint-2026")[AI Collusion Research Sprint project].
+It generates the paper's numbers, tables, and figures from the logs and compiles the document.
+The ported files are listed in `paper/README.md`.
+
+Thomas Redfern participated in that earlier project.
+The experiment code, data, and code that incorporates those results into the paper were developed for this sprint.
 
 #unnumbered[LLM Usage Statement]
 #todo[how LLMs were used]
