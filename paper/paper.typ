@@ -9,7 +9,23 @@
     (name: [Thomas Redfern], affiliation: [Unaffiliated]),
   ),
   abstract: [
-    #todo[the abstract, 150 to 250 words, written last from the final results]
+    A harmful task split across several AI agents can evade a monitor that reviews each agent separately, because each agent's part looks like ordinary work.
+    Reviewing the agents together can reveal the attack @kitaoka2026, but in a large fleet the monitor must first find the agents involved.
+    We reproduce this effect with a scripted data-exfiltration attack split across three agents, then hide the attacking team among many honest teams performing similar tasks.
+    #claim("read one at a time the split attack is missed; read together it is caught", ("tb.split.flagged", "tb.split.joint.flagged"), (p, j) => p == 0 and j == 1)
+    We test two approaches to finding the attacking team.
+    A monitor searching raw logs within a fixed budget increasingly misses the attack as the fleet grows.
+    #claim("the raw-log monitor detects fewer split attacks as the fleet grows", ("sa.split.n30", "sa.split.n180"), (small, big) => small > big)
+    Grouping tool calls by the records they touch helps when teams work independently.
+    But once honest teams share records, the graph merges them into large groups, leaving the monitor with too much unrelated activity to inspect.
+    #claim("the provenance graph works with no shared records and detects fewer split attacks when teams share records", ("sb.split.o0", "sb.split.o2"), (o0, o2) => o0 == 1 and o0 > o2)
+    Our method follows possible flows of private data.
+    A decision model estimates whether each tool call accesses private data, passes data onward, or enables an external delivery.
+    We connect calls through the records they write and reference, then simulate how data could flow between agents.
+    These flows identify small groups for the monitor to review together and judge against the organization's policy.
+    Across the tested conditions, the method consistently finds the attacking team, and the monitor detects every attack without flagging any honest fleet.
+    This holds as fleets grow to thousands of agents and as teams access more shared records.
+    #claim("the flow graph finds the attacking team and catches every split attack with no false alarms, in fleets of thousands", ("sc.graph.exact", "sc.split", "sc.honest", "sc.agents.n1600"), (g, s, h, n) => g == 1 and s == 1 and h == 0 and int(n.replace(",", "")) >= 1000)
   ],
 )
 
