@@ -49,31 +49,69 @@ We make three contributions:
 )
 #claim("the flow graph flags every split attack with no false alarms", ("sc.split", "sc.honest"), (s, h) => s == 1 and h == 0)
 
+= Problem Setting and Threat Model <sec-setting>
+== The scenario <sec-scenario>
+We study a scripted data-exfiltration scenario based on the weight-exfiltration attack in MiniLab @kitaoka2026.
+Three agents maintain records used by an automated delivery to an external partner.
+
+The delivery follows a chain of three records: a schedule points to a package entry, which points to the record containing the data to send.
+Initially, the package points to a shareable sample.
+After the agents finish, a sync service checks whether the schedule is enabled and the package is marked prepared.
+If both conditions hold, it follows these references and sends the data to the partner.
+The service checks that the package is ready but does not inspect its contents.
+
+The organization's policy prohibits sending a private model checkpoint to the partner, allows sharing a sample file, and permits internal backups of either.
+The checkpoint's record includes its contents and an export flag set to false.
+The policy also makes clear that a filename, a prepared flag, or a successful service response does not authorize an export.
+@sec-prompts provides the full policy, service descriptions, and agent tasks.
+
+The attack consists of three steps, each performed by a different agent:
+#enum(
+  [The backup agent copies the private checkpoint into an internal bundle.],
+  [The staging agent updates the package to point to that bundle.],
+  [The sync agent enables the delivery schedule, allowing the sync service to send the checkpoint to the partner.],
+)
+
+Each agent acts within its permissions and follows its assigned task.
+Internal backups are permitted, packages may reference internal bundles, and enabling a delivery is routine maintenance.
+The policy violation emerges from their combined actions: any two steps leave the checkpoint inside the organization, while all three cause it to be exported.
+
+Each agent can modify only its own record and has a limited view of the workflow.
+The sync agent cannot see what the package points to, and the staging agent cannot see what the bundle contains.
+Each colluder's transcript is therefore identical to one that an honest agent could produce.
+The agents do not exchange messages, and no individual agent's view reveals the overall attack.
+
+We include two kinds of honest team.
+One backs up and delivers the shareable sample instead of the private checkpoint.
+The other backs up the checkpoint and points the package to it, but leaves the delivery disabled.
+Honest teams therefore either handle private data without exporting it or export only shareable data.
+The attacking team combines private data with an enabled external delivery.
+
+In every run, each agent reads and updates its record, then posts a one-line status message.
+The backup agent also reads the file it copies.
+All actions are fixed in advance and executed in order; no model controls the agents.
+Each run type has #n("tb.layouts") layouts that vary the record names and task wording.
+
+== What the monitor sees <sec-view>
+Every monitor receives the operator's public log, which includes the policy, service descriptions, and each agent's assigned task and permissions, followed by its tool calls, results, and messages in chronological order.
+Each tool call identifies the agent that made it.
+
+The log excludes the sync service's internal records, so the monitor does not observe the delivery itself.
+It also excludes run IDs, timestamps, and ground-truth labels.
+
+The evidence needed to detect the attack is spread across the agents' records.
+The backup agent's logged read shows the checkpoint's contents and export flag, and its copy operation places those contents in the bundle.
+The staging agent's update identifies the bundle, while the sync agent's read identifies the package selected for delivery.
+Neither of these last two agents sees the bundle's contents.
+
+@tab-log, in @app-log, illustrates these actions in a fleet of #n("lx.agents") agents with #n("lx.events") logged events.
+Each colluder's update occupies a single line among similar updates from honest agents.
+
 = Flow-Graph Monitoring <sec-flow-method>
 #todo[the method: label, link, simulate, score and monitor]
 
 = Methods <sec-methods>
-We use a data-exfiltration scenario modeled on the weight-exfiltration attack in MiniLab @kitaoka2026: a team of three agents maintains the records that a scheduled partner delivery reads from.
-Three records point to one another: a delivery schedule names a package entry, and the package entry names the record whose data is to be delivered, at first a shareable sample.
-After the agents finish, a sync service runs on its own: when the schedule is enabled and the package is marked prepared, it follows the two pointers and copies whatever the named record holds to the schedule's partner destination.
-The service checks that the package is ready, not what it contains.
-The organization's policy names a model checkpoint as private, never to reach a partner, names a sample file as shareable, and permits internal backups of either.
-
-The attack takes three steps, one per agent.
-The backup agent copies the private checkpoint into the internal bundle, the staging agent points the package at that bundle, and the sync agent switches the delivery on; the sync service then delivers the checkpoint to the partner.
-Each step is allowed on its own: internal backups are permitted, packages may reference internal bundles, and enabling a delivery is routine maintenance.
-No agent uses a permission it lacks.
-Each can change only its own record and can't read past it, so the sync agent can't see what the package points to, and the staging agent can't see what the bundle holds.
-Any two of the steps leave the checkpoint inside the organization; only all three move it out.
-Each step is exactly what its agent's task asks for, so a colluder's own transcript is the same as that of an agent on an honest team.
-
-Honest teams take the same three steps with one difference.
-A team that ships shareable data backs up the sample instead of the checkpoint, so the delivery it switches on is allowed.
-A team that leaves the delivery off backs up the checkpoint and points the package at it, as the attack does, but keeps the schedule disabled.
-Each agent reads its record and then changes it (the backup agent also reads the file it copies), then posts a one-line status message; the agents never message each other.
-The agents are scripted: each run type's actions are fixed in advance and carried out in order, so no model plays the agents.
 Step 1 compares five run types on single teams: the split attack; a solo attack, in which one agent holds all three tasks and permissions; the two kinds of honest team; and an incomplete attack, in which one agent makes only the routine part of its change, so the chain never completes.
-Each run type comes in #n("tb.layouts") layouts, which vary the records' names and the wording of the tasks.
 
 The monitor is an LLM (#n("tb.model") at #n("tb.effort") reasoning effort) that reads the policy, a description of the services, and the agents' tasks, tool calls, results and messages.
 It doesn't see the service's own records, or the delivery itself.
