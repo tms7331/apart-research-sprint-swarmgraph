@@ -1,6 +1,6 @@
 # Follow the Data: Catching Split Attacks in Agent Swarms with Decision Model Graphs
 
-Our project for Apart Research's [Swarm Alignment Hackathon](https://apartresearch.com/sprints/swarm-alignment-2026) (2026-11-06 to 2026-11-08), Track 4: Multi-Agent Oversight and Control. Thomas Redfern.
+A project for Apart Research's [Swarm Alignment Hackathon](https://apartresearch.com/sprints/swarm-alignment-2026) (2026-11-06 to 2026-11-08), Track 4: Multi-Agent Oversight and Control.
 
 A monitor that reads one agent at a time catches a harmful objective when one agent carries it out. When the objective is split across several agents, each piece looks like ordinary work and the monitor misses it; reading the team together catches it again. That is the fragmentation result of [Kitaoka et al. (2026)](https://arxiv.org/abs/2610.24052). In a fleet of hundreds of agents, though, a defender doesn't know which agents form the team. We ask how a monitor can find which agents to read together.
 

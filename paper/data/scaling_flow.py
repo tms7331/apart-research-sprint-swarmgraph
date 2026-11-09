@@ -139,6 +139,9 @@ def scaling_flow(ledger: Ledger) -> None:
             ledger.pooled(f"sc.{name}.n{n}", cells[((n, 4), condition)], flagged, how=f"{HOW}; overlap 4",
                           cell=("case_id",))
         ledger.value(f"sc.agents.n{n}", f"{3 * n + 3:,}", how="agents in a fleet with this many honest teams")
+    ledger.value("sc.lookalikes", f"{min(e['honest_teams'] for e in episodes.values() if e['condition'] == 'split_attack'):,}",
+                 how="honest teams in the smallest attack fleet: each has a backup, staging and sync agent, so each "
+                     "colluder's step has this many same-role honest writes")
     curve = set(b_rows)
     ledger.pooled("sc.split", attack, flagged, how=f"{HOW}; every fleet", cell=("case_id",))
     ledger.pooled("sc.honest", honest, flagged, how=f"{HOW}; every fleet", cell=("case_id",))
