@@ -492,14 +492,23 @@ The monitor achieves that separation by reviewing the selected groups' actions a
 #claim("the flow graph catches every split attack, even where the provenance graph fails", ("sc.split", "sc.b.split"), (c, b) => c == 1 and b < 1)
 
 = Discussion and Limitations
-#todo[what the result does and does not establish]
+Our flow graph method is overfit to our dataset.
+We developed its questions and graph rules using variations of one scripted attack.
+Some of those cases are also included in the results (@app-development).
+The held-out cases come from the same generator.
+Doing well on these tests tells us little about how the system would handle a new attack.
 
-The flow graph follows data through records, not through an agent's own context.
-If one agent writes private data to a file, and a second agent reads that file and then emails what it read, the flow graph misses it.
-The read writes nothing, so Jev gives it a low carrier probability and the data stops there; and the sink question asks about deliveries the synchronization service carries out, so a direct email may not count as one.
-Two changes would cover this case: let a read whose result shows private data carry it into the agent's next action, and ask the sink question about any action that sends data outside the organization.
-The shared reads that merge the provenance graph's chains show other teams' record names, not private data, so the first change should not let overlap merge the teams again.
-Both changes alter the method after the results, so they would need a rerun on every fleet.
+An attacker could try adding a long chain of intermediate actions.
+Even if Jev thinks each action is very likely to pass data on, the simulation has another chance to stop at every step.
+If it finds no shortcut or fresh source of private data, fewer samples make it to the end as the chain grows.
+Eventually the attack may score too low to reach the monitor.
+We have not tested whether an attacker can make Jev assign the labels needed for this to work.
+
+The harder question is whether a weaker model can monitor a stronger one that is trying to evade it.
+A stronger model could try to fool Jev or exploit the rules that decide what the monitor sees.
+Fixing the long-chain problem would close one gap, but others may remain.
+We don't yet know whether this approach can be made reliable against such an attacker.
+It may turn out to be too easy to evade to be useful in practice.
 
 = Conclusion
 Detecting a split attack requires finding which agents to review together.
@@ -525,21 +534,10 @@ The ported files are listed in `paper/README.md`.
 Thomas Redfern participated in that earlier project.
 The experiment code, data, and code that incorporates those results into the paper were developed for this sprint.
 
-#unnumbered[LLM Usage Statement]
-We decided on the experiments to run and the direction of the code, but directed Claude to write the code and help analyze the results of the experiments.
-Code was developed with Claude Opus 5.5 and GPT-6-Astra.
-For our decision model graph, the initial idea was to use the model to score edges.
-This didn't scale well, and Claude helped explore variations that scaled better.
+#references("refs.bib")
 
-LLMs appear in the experiments in two roles: #n("tb.model"), through the Codex CLI, is every monitor, and Jev (#n("pr.jev.model")), a decision model, labels the tool calls in Experiment C.
-No model plays the agents.
+#show: appendix
 
-Initial drafts of this report's text, appendices included, were generated with AI.
-The appendices are still almost fully AI generated, the core paper content was revised extensively by hand.
-
-To keep errors out, every number, table and figure in the paper is filled in from the logs by the paper's build, not typed by a person or a model, the build checks the sentences whose wording depends on the data against those numbers, and every prompt in @sec-prompts is checked against the hash the run recorded.
-We cite only sources that one of us, or an agent we directed, read in full.
-We reviewed the code, results and text, and take responsibility for all of it.
 = Limitations and Dual-Use / Ethical Considerations <app-limitations>
 *Experimental scope.*
 The experiments use one scripted exfiltration workflow, one attack, and two kinds of honest team.
