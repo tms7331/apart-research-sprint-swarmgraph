@@ -20,9 +20,10 @@ from paper.data import source
 from paper.ledger import Ledger
 from swarmgraph.scaling import explorer
 from swarmgraph.scaling.flow import KEEP, THRESHOLD, TOP_GROUPS, WORLDS
+from swarmgraph.scaling.flow_roles import GROUP_ROLES_LOG
 from swarmgraph.transfer_baseline.io import read_jsonl
 
-from .scaling_graph import A_RUN, GRID, HONEST, INK, MUTED, RUN as B_RUN, SPLIT, overlap_of, tag
+from .scaling_graph import A_RUN, GRID, HONEST, INK, MUTED, RUN as B_RUN, SPLIT, observations, overlap_of, tag
 
 RUN = B_RUN.parent / "scaling_flow"
 EXAMPLE = "layout0_n100_overlap4_split_attack_split"  # the slides' running example: one of B's fleets, at overlap 4
@@ -83,7 +84,7 @@ def draw_judge(ax: Any, data: dict) -> None:
                                              for n, o in conds])
     ax.set_ylim(len(conds) - 0.4, -0.6)
     ax.set_xlim(45, 100)
-    ax.set_xlabel("judge's score for the fleet (the highest of its groups); each of 4 layouts x 2 passes",
+    ax.set_xlabel("monitor's score for the fleet (the highest of its groups); each of 4 layouts x 2 passes",
                   fontsize=8, color=INK)
     ax.legend(handles=[Line2D([], [], marker="s", color=SPLIT, linestyle="", label="split attack"),
                        Line2D([], [], marker="^", color=HONEST, linestyle="", label="honest (no attack)")],
@@ -164,10 +165,18 @@ def scaling_flow(ledger: Ledger) -> None:
                                       == set(episodes[g["case_id"]]["colluding_agent_ids"])} for g in attack_groups],
                   lambda r: r["exact"], how="attack fleets whose top graph group is exactly the three colluders / attack fleets",
                   cell=("case_id",))
+    twin = lambda c: c.replace("split_attack", "honest_authorized")
+    ledger.pooled("sc.graph.twin", [{"case_id": g["case_id"], "above": g["groups"][0]["score"]
+                                     > groups[twin(g["case_id"])]["groups"][0]["score"]} for g in attack_groups],
+                  lambda r: r["above"], how="attack fleets whose top flow score is above their honest twin's / attack fleets",
+                  cell=("case_id",))
     ledger.value("sc.graph.attack.min", f"{min(g['groups'][0]['score'] for g in attack_groups):.2f}",
                  how="lowest top-group graph score on an attack fleet")
     ledger.value("sc.graph.honest.max", f"{max(g['groups'][0]['score'] for g in honest_groups):.2f}",
                  how="highest top-group graph score on an honest fleet")
+    top_honest = max(honest_groups, key=lambda g: g["groups"][0]["score"])
+    ledger.value("sc.graph.honest.max.agents", f"{3 * point[top_honest['case_id']][0] + 3:,}",
+                 how="agents in the honest fleet with the highest top-group graph score")
     biggest = [g for g in attack_groups if point[g["case_id"]] == (sizes[-1], 4)]
     base = [g for g in attack_groups if point[g["case_id"]] == (100, 4)]
     ledger.value("sc.calls.base", f"{median(g['calls'] for g in base):,.0f}", how="tool calls in a 100-team fleet at overlap 4")
@@ -176,6 +185,32 @@ def scaling_flow(ledger: Ledger) -> None:
                  how="Jev labelling cost of one 100-team fleet at overlap 4 (cents)")
     ledger.value("sc.usd.largest", f"{100 * median(g['jev_usd'] for g in biggest):.0f}¢",
                  how="Jev labelling cost of one of the largest fleets (cents)")
+    others = {len(g["agents"]) for r in judged for g in r["groups"]
+              if set(g["agents"]) != set(episodes[r["case_id"]]["colluding_agent_ids"])}
+    ledger.value("sc.others.agents", "–".join(map(str, sorted(others)[::max(1, len(others) - 1)])),
+                 how="agents in each judged group that isn't exactly the three colluders, smallest to largest")
+    top_groups = [{"case_id": r["case_id"], "assessment": max(r["groups"], key=lambda g: g["response"]["score"])
+                   ["response"]["assessment"]} for r in judged]
+    group_roles = read_jsonl(RUN / GROUP_ROLES_LOG)  # from `python -m swarmgraph.scaling flow-roles` (committed)
+    if {r["case_id"] for r in group_roles} == set(episodes):
+        def honest_pair(roles: list, attack: bool) -> bool:  # one team's staging (r2) and sync (r3), not the attackers'
+            teams = {team for team, _ in roles}
+            return sorted(role for _, role in roles) == ["r2", "r3"] and len(teams) == 1 and not (attack and teams == {"f"})
+        ledger.pooled("sc.others.pair", [
+            {"case_id": r["case_id"], "pair": honest_pair(g["roles"], episodes[r["case_id"]]["condition"] == "split_attack")}
+            for r in group_roles for g in r["groups"]
+            if set(g["agents"]) != set(episodes[r["case_id"]]["colluding_agent_ids"])], lambda r: r["pair"],
+            how="judged groups that aren't exactly the three colluders and are one honest team's staging and sync "
+                "agents / judged groups that aren't exactly the three colluders", cell=("case_id",))
+    ledger.pooled("sc.judge.precursor", top_groups, lambda r: r["assessment"] == "precursor",
+                  how="judgments whose highest-scoring group the judge assessed as a precursor rather than a completed "
+                      "violation / judgments", cell=("case_id",))
+    ledger.value("sc.jev.requests", f"{sum(g['jev_requests'] for g in groups.values()):,}",
+                 how="Jev requests over every fleet (one per tool call)")
+    ledger.value("sc.jev.refused", sum(g["refused_answers"] for g in groups.values()),
+                 how="Jev answers that came back refused or missing, over every fleet (each counted as 0.5)")
+    ledger.value("sc.jev.long", sum(g["long_context_requests"] for g in groups.values()),
+                 how="Jev requests over its long-context size, over every fleet")
     prompt_chars = [g["prompt_chars"] for r in judged for g in r["groups"]]
     log_chars = [v["prompt_chars"] for c, e in episodes.items() if point[c] == (100, 4) for v in e["views"]]
     ledger.value("sc.judge.chars", f"{median(prompt_chars) / 1000:.1f}K", how="median characters of evidence per judge call")
@@ -188,7 +223,7 @@ def scaling_flow(ledger: Ledger) -> None:
                and r["case_id"] in a_rows]
     rate = lambda rs: sum(r["flagged"] for r in rs) / len(rs)
     header = ["agents", "overlap", "split caught, B's graph", "split caught, flow graph", "honest false alarms",
-              "judge score, attack", "judge score, honest", "Jev cost per fleet"]
+              "monitor score, attack", "monitor score, honest", "Jev cost per fleet"]
     table = []
     points = [(100, o) for o in overlaps] + [(n, 4) for n in sizes if n != 100]
     for n, o in points:
@@ -210,7 +245,7 @@ def scaling_flow(ledger: Ledger) -> None:
             ("A: no graph", [count(a_split) if (n, o) == (100, 0) else None for n, o in conditions]),
             ("B: provenance graph", [count([r for r in b_split if r["overlap"] == o]) if n == 100 else None
                                      for n, o in conditions]),
-            ("C: flow graph + judge", [count(cells[(c, "split_attack")]) for c in conditions])]},
+            ("C: flow graph + monitor", [count(cells[(c, "split_attack")]) for c in conditions])]},
         how=f"{HOW}; with B's graph runs and A's runs of the same fleets for comparison", size=(6.5, 2.2))
     ledger.figure("sc-scores", draw_judge, {
         "conditions": conditions, "threshold": THRESHOLD,
@@ -218,13 +253,13 @@ def scaling_flow(ledger: Ledger) -> None:
         "honest_scores": [[r["score"] for r in cells[(c, "honest_authorized")]] for c in conditions]},
         how=f"{HOW}; every judgment's score", size=(6.5, 3.0))
     example(ledger, groups[EXAMPLE], [r for r in judged if r["case_id"] == EXAMPLE],
-            set(episodes[EXAMPLE]["colluding_agent_ids"]))
+            set(episodes[EXAMPLE]["colluding_agent_ids"]), episodes[EXAMPLE]["event_count"])
 
 
-def example(ledger: Ledger, fleet: dict, judgments: list[dict], colluders: set[str]) -> None:
+def example(ledger: Ledger, fleet: dict, judgments: list[dict], colluders: set[str], event_count: int) -> None:
     """Each step of the flow graph on one real fleet, for the slides: the top group's calls and their Jev labels,
     its flow score, and the judge's scores. The fleet's log is B's (the same fleet, byte for byte)."""
-    events = {e["event_id"]: e for e in read_jsonl(B_RUN / "episodes" / EXAMPLE / "observations.jsonl")}
+    events = {e["event_id"]: e for e in observations(EXAMPLE, event_count)}  # rebuilt if the local fleet is missing
     top, how = fleet["groups"][0], f"{EXAMPLE}: "
     calls = top["calls"]
     roles = {"source": calls[0], "carrier": next(c for c in calls if c not in (calls[0], top["sink"])),

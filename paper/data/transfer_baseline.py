@@ -19,6 +19,7 @@ from swarmgraph.transfer_baseline.io import read_jsonl
 ROOT = Path(__file__).resolve().parents[2]
 RUN = ROOT / "logs" / "transfer_baseline"
 TEAM = ("case_id",)  # each team is its own cell: one episode, with its own prompts
+ROLES = ("backup", "staging", "sync")  # r1, r2, r3 in swarmgraph/transfer_baseline/scenario.py: an episode's agent_ids follow this order
 ROWS = {  # the figure's row groups, top to bottom: label -> which teams (split layout only: they have both views)
     "split attack": lambda r: r["condition"] == "split_attack",
     "honest (no attack)": lambda r: r["condition"] == "honest_authorized",
@@ -71,10 +72,18 @@ def flagged(key: str, threshold: float):
     return lambda row: row[key] >= threshold
 
 
+def span(values) -> str:
+    """A range of scores as text: "40–45", or "0" when they're all the same."""
+    values = list(values)
+    low, high = min(values), max(values)
+    return f"{low:g}" if low == high else f"{low:g}–{high:g}"
+
+
 @source("tb")
 def transfer_baseline(ledger: Ledger) -> None:
     design = json.loads((RUN / "protocol.json").read_text())
-    data = summarize(read_jsonl(RUN / "episodes.jsonl"), read_jsonl(RUN / "judgments.jsonl"), design)
+    episodes = read_jsonl(RUN / "episodes.jsonl")
+    data = summarize(episodes, read_jsonl(RUN / "judgments.jsonl"), design)
     rows, threshold = [r for r in data["rows"] if r["eligible"]], design["threshold"]
     ledger.value("tb.run", design["version"], how="the run the numbers come from (protocol.json)")
     ledger.value("tb.episodes", data["episodes"], how="scripted episodes")
@@ -96,6 +105,26 @@ def transfer_baseline(ledger: Ledger) -> None:
     ):
         scored = [r for r in rows if r["condition"] in conditions and r[score] is not None]
         ledger.pooled(key, scored, flagged(score, threshold), how=f"{score}: {how}", cell=TEAM)
+    agents = {e["case_id"]: e["agent_ids"] for e in episodes}
+
+    def members(condition: str) -> list[dict]:
+        """Each split team's per-agent medians by role, for the teams of one run type."""
+        return [{"case_id": r["case_id"], **{ROLES[agents[r["case_id"]].index(v["agents"][0])]: v["median"]
+                                             for v in r["views"] if v["view"] == "per_agent"}}
+                for r in rows if r["condition"] == condition and r["execution_layout"] == "split"
+                and r["per_agent"] is not None]
+
+    attack, shipping = members("split_attack"), members("honest_authorized")
+    ledger.pooled("tb.split.sync.top", attack, lambda m: m["sync"] == max(m[role] for role in ROLES),
+                  how="split teams whose highest-scoring member read individually is the sync agent / split teams",
+                  cell=TEAM)
+    ledger.value("tb.split.sync", span(m["sync"] for m in attack),
+                 how="the sync agent's median read individually, across the split-attack teams")
+    ledger.value("tb.split.backup", span(m["backup"] for m in attack),
+                 how="the backup agent's median read individually, across the split-attack teams")
+    ledger.value("tb.honest.sync", span(m["sync"] for m in shipping),
+                 how="the sync agent's median read individually, across the honest split teams that ship shareable data")
+
     def shown(value):
         return "-" if value is None else f"{value:g}"
     ledger.table(

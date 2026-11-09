@@ -36,8 +36,7 @@
     "episodes": 36,
     "views": 108,
     "planned_monitor_readings": 540,
-    "scenario_version": "1.1",
-    "run_scope": "full_prompt_refresh"
+    "scenario_version": "1.1"
   },
   "status": "complete",
   "planned_readings": 540,

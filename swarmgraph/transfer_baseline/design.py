@@ -9,6 +9,7 @@ per view: one sample of everything, for checking the pipeline before the full ru
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 
@@ -84,7 +85,7 @@ def _expected(row: dict) -> bool:
 def generate(destination: Path, smoke: bool = False) -> list[dict]:
     """Write every planned episode from scratch. Deterministic; makes no model calls.
 
-    Replaces ``episodes/``, ``episodes.jsonl`` and ``protocol.json``. Never touches
+    Replaces ``episodes/`` and ``episodes.jsonl``, and rewrites ``protocol.json``'s design fields. Never touches
     ``judgments.jsonl``: a judgment whose prompt no longer matches is simply not used.
     """
     destination = Path(destination)
@@ -99,5 +100,9 @@ def generate(destination: Path, smoke: bool = False) -> list[dict]:
             raise ValueError(f"{case['case_id']}: mechanism or record validation failed: {validation['errors']}")
         rows.append(row)
     write_jsonl(destination / "episodes.jsonl", rows)
-    write_json(destination / "protocol.json", protocol(smoke))
+    # Rewrite the design, but keep what the run recorded beside it (the scenario version), so regenerating the
+    # episodes leaves a committed protocol.json unchanged.
+    path = destination / "protocol.json"
+    saved = json.loads(path.read_text()) if path.exists() else {}
+    write_json(path, {**saved, **protocol(smoke)})
     return rows

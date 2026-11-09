@@ -1,15 +1,16 @@
-"""Step 2: generate the fleets, then run the all-logs reference and Experiment A's investigator on them.
+"""Experiments A-C: generate the fleets, run the monitors on them, and report.
 
-    uv run python -m swarmgraph.scaling generate [--smoke]      # deterministic fleets, no model calls
-    uv run python -m swarmgraph.scaling investigate [--smoke]   # Experiment A: the missing investigations, then its report
-    uv run python -m swarmgraph.scaling judge [--smoke]         # all-logs reference: the missing readings, then its report
-    uv run python -m swarmgraph.scaling report [--smoke]        # both reports
+    uv run python -m swarmgraph.scaling generate [--smoke]      # A's fleets: deterministic, no model calls
+    uv run python -m swarmgraph.scaling explore --run-index 0,1 # Experiment A: the missing explorations
+    uv run python -m swarmgraph.scaling report [--smoke]        # Experiment A's report (reports/scaling_explorer/)
+    uv run python -m swarmgraph.scaling graph-curve             # B's curve fleets: deterministic, no model calls
+    uv run python -m swarmgraph.scaling explore-graph --curve --run-index 0,1,2,3  # Experiment B
     uv run python -m swarmgraph.scaling flow --run-index 0,1    # Experiment C (flow.py): fleets, Jev labels, judge
     uv run python -m swarmgraph.scaling flow-report [--smoke]   # Experiment C's flag rates
+    uv run python -m swarmgraph.scaling flow-roles [--smoke]    # C's judged groups' teams and roles (no model calls)
 
-Full run: logs/scaling/ (84 episodes; 3 investigations each), reports in reports/scaling_investigator/ and
-reports/scaling_all_logs/. Smoke run (--smoke): logs/scaling_smoke/ (21 episodes; 1 investigation each),
-reports beside it. The raw Codex CLI archive goes to <destination>/raw_calls/, which Git ignores.
+Every model command resumes: it skips work already in its log. The raw Codex CLI archive goes to
+<destination>/raw_calls/, which Git ignores.
 """
 from __future__ import annotations
 
@@ -19,46 +20,16 @@ import json
 from pathlib import Path
 
 from swarmgraph.transfer_baseline.io import read_jsonl, utc_now
-from swarmgraph.transfer_baseline.monitoring import judge_one
-from swarmgraph.transfer_baseline.run import MonitorClient, pending
+from swarmgraph.transfer_baseline.run import MonitorClient
 
-from . import explorer, graph, investigator
-from .design import DESTINATION, EXPLORER_REPORT, INVESTIGATOR_REPORT, REPORT, SMOKE_DESTINATION, generate, protocol
+from . import explorer, graph
+from .design import DESTINATION, EXPLORER_REPORT, SMOKE_DESTINATION, generate
 
 
 def _stopped(client) -> None:
     if getattr(client, "stopped", False):
         raise RuntimeError("A stop marker exists in raw_calls/ (access, safety or usage restriction); "
                            "saved results are kept and the run resumes later")
-
-
-async def judge(destination: Path, smoke: bool = False, concurrency: int = 2, client=None,
-                min_interval: float = 2.0) -> None:
-    """All-logs reference: one all-logs view per episode, judged readings_per_view times."""
-    destination = Path(destination)
-    readings = protocol(smoke)["readings_per_view"]
-    todo = pending(destination, readings)
-    client = client or MonitorClient(destination / "raw_calls", concurrency, min_interval)
-    _stopped(client)
-    print(json.dumps({"at": utc_now(), "pending_readings": len(todo)}), flush=True)
-    await asyncio.gather(*(judge_one(client, destination, planned) for planned in todo))
-    remaining = len(pending(destination, readings))
-    print(json.dumps({"at": utc_now(), "taken": len(todo) - remaining, "still_missing": remaining}), flush=True)
-    _stopped(client)
-
-
-async def investigate(destination: Path, smoke: bool = False, concurrency: int = 2, client=None,
-                      min_interval: float = 2.0) -> None:
-    """Experiment A: the investigations not yet finished."""
-    destination = Path(destination)
-    runs = investigator.SMOKE_RUNS if smoke else investigator.RUNS
-    client = client or MonitorClient(destination / "raw_calls", concurrency, min_interval)
-    _stopped(client)
-    started = await investigator.run_investigations(client, destination, runs)
-    remaining = len(investigator.pending(destination, runs))
-    print(json.dumps({"at": utc_now(), "started": started, "finished": started - remaining,
-                      "still_missing": remaining}), flush=True)
-    _stopped(client)
 
 
 async def explore(destination: Path, cases: list[str], run_indices: list[int], concurrency: int = 4,
@@ -83,11 +54,6 @@ async def explore(destination: Path, cases: list[str], run_indices: list[int], c
 
 
 def reports(destination: Path, smoke: bool) -> None:
-    from .analysis import report
-    if (destination / "judgments.jsonl").exists():  # the all-logs reference; no report until it has readings
-        report(destination, destination / "report_all_logs" if smoke else REPORT, smoke)
-    investigator.report(destination, destination / "report_investigator" if smoke else INVESTIGATOR_REPORT,
-                        investigator.SMOKE_RUNS if smoke else investigator.RUNS)
     if (destination / explorer.LOG).exists():
         explorer.report(destination, destination / "report_explorer" if smoke else EXPLORER_REPORT)
 
@@ -165,8 +131,8 @@ async def flow_run(smoke: bool, run_indices: list[int], cases: list[str], concur
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("generate", "investigate", "explore", "judge", "report", "graph-sandbox",
-                                            "explore-graph", "graph-curve", "flow", "flow-report"))
+    parser.add_argument("command", choices=("generate", "explore", "report", "graph-sandbox",
+                                            "explore-graph", "graph-curve", "flow", "flow-report", "flow-roles"))
     parser.add_argument("--curve", action="store_true", help="explore-graph: the curve's fleets, not the sandbox")
     parser.add_argument("--plain", action="store_true", help="explore-graph: A's explorer (no graph tools) on the graph fleets")
     parser.add_argument("--fallback", action="store_true",
@@ -175,7 +141,7 @@ def main(argv=None) -> None:
     parser.add_argument("--run-index", default="0", help="explore: which pass(es) of the real run, e.g. 0 or 1 or 0,1")
     parser.add_argument("--retry-forbidden", action="store_true",
                         help="explore/explore-graph: retry generic HTTP 403s after a shared 60-second cooldown; explicit safety/auth/usage failures still stop")
-    parser.add_argument("--smoke", action="store_true", help="layout 0 only, one reading or investigation each")
+    parser.add_argument("--smoke", action="store_true", help="A: layout 0 only; C: four small fleets (separate gitignored folders)")
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--jev-workers", type=int, default=32, help="flow: parallel Jev requests")
     parser.add_argument("--min-interval", type=float, default=0.0,
@@ -195,6 +161,12 @@ def main(argv=None) -> None:
         from .design import FLOW_DESTINATION, FLOW_SMOKE_DESTINATION
         print(flow.summary(FLOW_SMOKE_DESTINATION if args.smoke else FLOW_DESTINATION))
         return
+    if args.command == "flow-roles":
+        from .design import FLOW_DESTINATION, FLOW_SMOKE_DESTINATION
+        from .flow_roles import GROUP_ROLES_LOG, group_roles
+        rows = group_roles(FLOW_SMOKE_DESTINATION if args.smoke else FLOW_DESTINATION, args.smoke)
+        print(json.dumps({"fleets": len(rows), "written": GROUP_ROLES_LOG}))
+        return
     if args.command == "explore-graph":
         asyncio.run(explore_graph([c for c in args.cases.split(",") if c], args.plain, args.concurrency, args.fallback,
                                   args.curve, tuple(int(r) for r in args.run_index.split(",")),
@@ -205,11 +177,7 @@ def main(argv=None) -> None:
         print(json.dumps({"episodes": len(rows), "destination": str(destination)}))
         return
     try:
-        if args.command == "judge":
-            asyncio.run(judge(destination, args.smoke, args.concurrency, min_interval=args.min_interval))
-        elif args.command == "investigate":
-            asyncio.run(investigate(destination, args.smoke, args.concurrency, min_interval=args.min_interval))
-        elif args.command == "explore":
+        if args.command == "explore":
             asyncio.run(explore(destination, [c for c in args.cases.split(",") if c],
                                 [int(r) for r in args.run_index.split(",")], args.concurrency, args.min_interval,
                                 retry_forbidden=args.retry_forbidden))

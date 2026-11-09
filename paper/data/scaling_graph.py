@@ -2,13 +2,12 @@
 (swarmgraph/scaling/graph.py) and graph tools, on a fleet of fixed size as cross-team overlap grows.
 
 Reads logs/scaling_graph_curve/episodes.jsonl and graph_explorations.jsonl (every successful exploration of the
-explorer_graph_v2 prompt), and each fleet's observations.jsonl to rebuild its graph. The fleets themselves are not
-committed: a missing one is regenerated (deterministically, with no model calls) into a temporary directory and
-checked against its committed event count. The overlap-0 fleets are Experiment A's 100-team fleets, which is
+prompt the code names, explorer.GRAPH_PROMPT_VERSION), and each fleet's observations.jsonl to rebuild its graph. The fleets themselves are not
+committed: each is checked against its committed summary, and regenerated (deterministically, with no model calls)
+when missing or stale (paper/data/fleets.py). The overlap-0 fleets are Experiment A's 100-team fleets, which is
 checked here through the committed prompt hashes."""
 
 import re
-import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
@@ -18,10 +17,10 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import FixedLocator, NullLocator, PercentFormatter
 
 from paper.data import source
+from paper.data.fleets import fleet_events
 from paper.ledger import Ledger
 from swarmgraph.scaling import explorer, graph
 from swarmgraph.scaling.design import graph_curve_cases
-from swarmgraph.scaling.fleet import generate_fleet_episode
 from swarmgraph.transfer_baseline.io import read_jsonl
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,15 +43,9 @@ def tag(overlap: float) -> str:
 
 
 def observations(case_id: str, event_count: int) -> list[dict]:
-    path = RUN / "episodes" / case_id / "observations.jsonl"
-    if path.exists():
-        return read_jsonl(path)
-    case = next(c for c in graph_curve_cases() if c["case_id"] == case_id)
-    with tempfile.TemporaryDirectory() as tmp:
-        generate_fleet_episode(Path(tmp), case)
-        events = read_jsonl(Path(tmp) / case_id / "observations.jsonl")
-    if len(events) != event_count:
-        raise ValueError(f"{case_id}: regenerated {len(events)} events, the committed row says {event_count}")
+    """B's curve fleet's public log, checked against its committed summary (paper/data/fleets.py)."""
+    events = fleet_events(RUN, case_id, graph_curve_cases)
+    assert len(events) == event_count, case_id
     return events
 
 
@@ -148,13 +141,16 @@ def scaling_graph(ledger: Ledger) -> None:
                      "input_tokens": sum((t.get("usage") or {}).get("input_tokens") or 0 for t in r["turns"])})
     # The size of the chain holding the focal team: the colluders in an attack fleet, the same three roles (and,
     # since the overlap is seeded without the run type, the same chain) in its honest twin.
-    chains = {}
-    for row in rows:
+    chains, logs = {}, {}
+    for row, r in zip(rows, explored):
         e = episodes[row["case_id"]]
         if row["case_id"] not in chains:  # one graph per fleet, however many times it was monitored
-            built = graph.build(observations(row["case_id"], e["event_count"]))
+            events = observations(row["case_id"], e["event_count"])
+            built = graph.build(events)
             chains[row["case_id"]] = graph.describe(built, e["focal_agent_ids"])["colluders_chain_agents"]
+            logs[row["case_id"]] = explorer.Log(events)
         row["chain"] = chains[row["case_id"]]
+        row["steps"] = explorer.found_all_four_steps(r, e, logs[row["case_id"]])
     overlaps = sorted({r["overlap"] for r in rows})
     agents = {r["agents"] for r in rows}
     assert len(agents) == 1, agents
@@ -206,6 +202,12 @@ def scaling_graph(ledger: Ledger) -> None:
     judged = [r["score"] for r in misses if r["saw_all"]]
     ledger.value("sb.misses.saw.score", ", ".join(str(v) for v in judged) or "-",
                  how="final scores of missed runs that had seen every colluder's events")
+    ledger.value("sb.misses.steps", sum(r["steps"] for r in misses),
+                 how="of the missed split attacks, runs that retrieved an event (in full or as a search snippet) from "
+                     "each of the attack's four steps: the private read, the copy, the prepared package, the enabled "
+                     "schedule (swarmgraph.scaling.explorer.found_all_four_steps)")
+    ledger.value("sb.catches.steps", sum(r["steps"] for r in catches),
+                 how="of the caught split attacks, runs that retrieved an event from each of the attack's four steps")
     ledger.value("sb.catches.saw.all", sum(r["saw_all"] for r in catches),
                  how="of those, explorations that saw every colluder's events")
     calls = [{"case_id": r["case_id"], "overlap": r["overlap"], "tool": tool} for r in rows for tool in r["tools"]]

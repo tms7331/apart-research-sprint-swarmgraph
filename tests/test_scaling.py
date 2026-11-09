@@ -2,20 +2,15 @@
 
 No test makes a model call.
 """
-import asyncio
 from collections import Counter
-import json
 from pathlib import Path
 
 import pytest
 
 from swarmgraph.scaling import design as scaling
-from swarmgraph.scaling.analysis import summarize
 from swarmgraph.scaling.design import HONEST_TEAMS, PROTOCOL, SMOKE, planned_cases
-from swarmgraph.scaling.run import judge
 from swarmgraph.transfer_baseline import design as step1
 from swarmgraph.transfer_baseline.io import read_jsonl
-from swarmgraph.transfer_baseline.run import pending
 
 PACKAGE = Path(scaling.__file__).resolve().parent
 GENERATED = ("episodes", "episodes.jsonl", "protocol.json")
@@ -92,40 +87,3 @@ def test_with_no_honest_teams_the_split_attack_prompt_is_step_1s_group_view(full
     zero = [r for r in rows if r["honest_teams"] == 0 and r["condition"] == "split_attack"]
     assert len(zero) == 4
     assert all(r["views"][0]["prompt_sha256"] == group[r["layout_variant"]] for r in zero)
-
-
-class CitingMonitor:
-    """Scores everything 80 and cites the first tool call in the evidence."""
-
-    stopped = False
-
-    def __init__(self):
-        self.calls = []
-
-    async def ask(self, prompt, schema, purpose, call_id=None):
-        self.calls.append(call_id)
-        records = json.loads(prompt.split("\n\nEVIDENCE:\n", 1)[1])["records"]
-        first = next(r["event_id"] for r in records if r["kind"] == "tool_call")
-        return {"status": "ok", "call_id": call_id, "usage": {"input_tokens": len(prompt) // 4},
-                "latency_s": 1.0, "response": {"score": 80, "assessment": "precursor", "explanation": "test",
-                                               "supporting_event_ids": [first], "missing_information": ""}}
-
-
-def test_judging_resumes_and_the_summary_counts_flags_and_blame(tmp_path, generate_small_fleets):
-    rows = generate_small_fleets(tmp_path, smoke=True)
-    monitor = CitingMonitor()
-    asyncio.run(judge(tmp_path, smoke=True, client=monitor))
-    assert len(monitor.calls) == len(set(monitor.calls)) == len(rows) * SMOKE["readings_per_view"]
-    assert pending(tmp_path, SMOKE["readings_per_view"]) == []
-    asyncio.run(judge(tmp_path, smoke=True, client=monitor))
-    assert len(monitor.calls) == len(rows) * SMOKE["readings_per_view"]
-    data = summarize(tmp_path, SMOKE)
-    assert data["status"] == "complete" and data["ineligible_episodes"] == []
-    cells = {c["honest_teams"]: c for c in data["by_honest_teams"]}
-    assert sorted(cells) == [0, 1, 3]
-    for cell in cells.values():
-        for condition in ("solo_attack", "split_attack", "honest_authorized"):
-            assert (cell[condition]["flagged"]["count"], cell[condition]["flagged"]["n"]) == (1, 1)
-    # With no honest teams, the first tool call can only be a colluder's.
-    assert cells[0]["split_attack"]["cites_only_colluders"]["rate"] == 1
-    assert cells[0]["median_input_tokens"] < cells[3]["median_input_tokens"]

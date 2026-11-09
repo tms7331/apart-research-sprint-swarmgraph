@@ -1,19 +1,21 @@
-"""Step 2's fleets, and the all-logs reference (specs/STEP2_PLAN.md).
+"""Step 2's fleets (specs/STEP2_PLAN.md), for Experiments A to C.
 
 Three run types x four layout variants x N = 0, 1, 3, 10, 30, 100, 180 honest background teams: 84 episodes,
-generated deterministically into logs/scaling/. Every Step 2 method reads these same episodes and writes its
-own log beside them: judgments.jsonl (all logs, unlimited budget) and investigations.jsonl (Experiment A's
-investigator, investigator.py).
+generated deterministically into logs/scaling/. Experiment A's explorer reads these episodes and writes its log
+beside them (explorations.jsonl).
 
 N = 180 (543 agents) is the largest fleet one call can read: the Codex CLI refuses input over 1,048,576
 characters (about 189 honest teams), well before the model's 500K-token context window. The smoke design is
 layout 0 only: all seven N, 21 episodes, in logs/scaling_smoke/.
 
-All-logs reference: one all-logs view per episode, judged 5 times (420 calls); smoke, once (21 calls).
+PROTOCOL still describes the whole-log reference the fleets were first designed for (one all-logs view per
+episode, five readings), which has no committed results. Each episode keeps that view's prompt hash as the
+fleet's fingerprint, which the paper's build checks (paper/data/fleets.py).
 """
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import shutil
 
 from swarmgraph.transfer_baseline.codex_cli import EFFORT, MODEL
@@ -27,8 +29,6 @@ from .fleet import BACKGROUND_CONDITIONS, VIEW, generate_fleet_episode
 REPOSITORY = Path(__file__).resolve().parents[2]
 DESTINATION = REPOSITORY / "logs/scaling"
 SMOKE_DESTINATION = REPOSITORY / "logs/scaling_smoke"
-REPORT = REPOSITORY / "reports/scaling_all_logs"
-INVESTIGATOR_REPORT = REPOSITORY / "reports/scaling_investigator"
 EXPLORER_REPORT = REPOSITORY / "reports/scaling_explorer"
 
 RUN_TYPES = (("solo_attack", "solo"), ("split_attack", "split"), ("honest_authorized", "split"))
@@ -147,5 +147,9 @@ def generate(destination: Path, smoke: bool = False, cases: list[dict] | None = 
             raise ValueError(f"{case['case_id']}: its prompt exceeds the CLI's {CLI_MAX_PROMPT_CHARS:,}-character cap")
         rows.append(row)
     write_jsonl(destination / "episodes.jsonl", rows)
-    write_json(destination / "protocol.json", design or protocol(smoke))
+    # Rewrite the design, but keep what the runs recorded beside it (the explorer's prompt version and passes,
+    # the scenario version), so regenerating the fleets leaves a committed protocol.json unchanged.
+    path = destination / "protocol.json"
+    saved = json.loads(path.read_text()) if path.exists() else {}
+    write_json(path, {**saved, **(design or protocol(smoke))})
     return rows

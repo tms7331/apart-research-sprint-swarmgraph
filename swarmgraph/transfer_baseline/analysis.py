@@ -165,10 +165,17 @@ def markdown(data: dict) -> str:
 
 def report(destination: Path, output: Path, smoke: bool = False) -> dict:
     destination = Path(destination)
-    data = summarize(read_jsonl(destination / "episodes.jsonl"), read_jsonl(destination / "judgments.jsonl"), protocol(smoke))
+    # The protocol the run recorded, which can hold more than the code's design (e.g. the scenario version).
+    recorded = destination / "protocol.json"
+    design = json.loads(recorded.read_text()) if recorded.exists() else protocol(smoke)
+    data = summarize(read_jsonl(destination / "episodes.jsonl"), read_jsonl(destination / "judgments.jsonl"), design)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    write_json(output / "summary.json", {key: value for key, value in data.items() if key != "rows"})
+    summary = {key: value for key, value in data.items() if key != "rows"}
+    previous = json.loads((output / "summary.json").read_text()) if (output / "summary.json").exists() else None
+    if previous and {**previous, "generated_at": None} == {**summary, "generated_at": None}:
+        summary["generated_at"] = previous["generated_at"]  # nothing changed, so leave the file as it was
+    write_json(output / "summary.json", summary)
     write_json(output / "scores.json", data["rows"])
     (output / "RESULTS.md").write_text(markdown(data))
     print(json.dumps({"report": str(output / "RESULTS.md"), "status": data["status"],

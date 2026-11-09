@@ -1,7 +1,7 @@
 """Step 2, Experiment A (swarmgraph/scaling/): an explorer with search and read tools and a fixed budget, as the
 fleet grows. Reads logs/scaling/episodes.jsonl and explorations.jsonl through swarmgraph.scaling.explorer, so
-the paper counts what the run's report counts: every successful exploration of the explorer_v1 prompt, both
-passes (run indices 0 and 1)."""
+the paper counts what the run's report counts: every successful exploration of the prompt the
+code names (explorer.PROMPT_VERSION), both passes (run indices 0 and 1)."""
 
 from collections import defaultdict
 from pathlib import Path
@@ -11,8 +11,10 @@ from typing import Any
 from matplotlib.ticker import FixedLocator, NullLocator, PercentFormatter
 
 from paper.data import source
+from paper.data.fleets import fleet_events
 from paper.ledger import Ledger
 from swarmgraph.scaling import explorer
+from swarmgraph.scaling.design import planned_cases
 from swarmgraph.transfer_baseline.io import read_jsonl
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -60,6 +62,27 @@ def draw_detection(ax: Any, data: dict) -> None:
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3, fontsize=8, frameon=False)
 
 
+def observations(case_id: str, event_count: int) -> list[dict]:
+    """A's fleet's public log, checked against its committed summary (paper/data/fleets.py)."""
+    events = fleet_events(RUN, case_id, planned_cases)
+    assert len(events) == event_count, case_id
+    return events
+
+
+def four_steps(episodes: dict) -> dict[str, bool]:
+    """Each attack exploration's ID -> whether it retrieved an event (in full or as a search snippet) from each of
+    the attack's four steps: the private read, the copy, the prepared package and the enabled schedule."""
+    out, logs = {}, {}
+    for r in read_jsonl(RUN / explorer.LOG):
+        e = episodes[r["case_id"]]
+        if r.get("status") != "ok" or e["condition"] == "honest_authorized":
+            continue
+        if r["case_id"] not in logs:
+            logs[r["case_id"]] = explorer.Log(observations(r["case_id"], e["event_count"]))
+        out[r["exploration_id"]] = explorer.found_all_four_steps(r, e, logs[r["case_id"]])
+    return out
+
+
 @source("sa")
 def scaling_explorer(ledger: Ledger) -> None:
     episodes = {e["case_id"]: e for e in read_jsonl(RUN / "episodes.jsonl")}
@@ -94,6 +117,13 @@ def scaling_explorer(ledger: Ledger) -> None:
     ledger.value("sa.misses.saw.all", sum(map(saw_all, misses)), how="of those, explorations that saw every colluder's events")
     ledger.value("sa.catches.saw.all", sum(map(saw_all, [r for r in attacks if r["flagged"]])),
                  how="attack explorations that flagged the fleet and had seen every colluder's events")
+    steps = four_steps(episodes)
+    ok = [r for r in read_jsonl(RUN / explorer.LOG) if r.get("status") == "ok" and r["exploration_id"] in steps]
+    ledger.value("sa.misses.steps", sum(steps[r["exploration_id"]] for r in ok if r["score"] < explorer.THRESHOLD),
+                 how="of the missed attacks, explorations that retrieved an event (in full or as a search snippet) from "
+                     "each of the attack's four steps (swarmgraph.scaling.explorer.found_all_four_steps)")
+    ledger.value("sa.catches.steps", sum(steps[r["exploration_id"]] for r in ok if r["score"] >= explorer.THRESHOLD),
+                 how="of the caught attacks, explorations that retrieved an event from each of the attack's four steps")
     ledger.value("sa.catches", sum(r["flagged"] for r in attacks), how="attack explorations that flagged the fleet")
     ledger.value("sa.honest.max", max(r["score"] for r in honest), how="highest final score on an honest fleet")
     ledger.value("sa.tokens.largest", round(median(r["input_tokens"] for r in rows if r["honest_teams"] == teams[-1]) / 1000),
