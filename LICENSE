@@ -1,0 +1,16 @@
+This repository is under three licenses.
+
+- CC-BY-4.0: the prose, notes, specs, reports, data and run logs, the paper and the slides.
+  Text: LICENSES/CC-BY-4.0.txt
+- MIT: the code (the Python under swarmgraph/, paper/, scripts/ and tests/, the paper's
+  Typst template and library, bin/ and config).
+  Text: LICENSES/MIT.txt
+- OFL-1.1: the paper's font, Old Standard TT, in paper/fonts/.
+  Text: LICENSES/OFL-1.1.txt
+
+REUSE.toml says which license covers each path;
+`uvx --from 'reuse[charset-normalizer]==6.2.0' reuse lint` checks it against LICENSES/.
+
+Copyright 2026 Thomas Redfern. The paper build ported from the AI Collusion Research Sprint
+(REUSE.toml lists its files) is Copyright 2026 Jason Carver and Thomas Redfern, and
+paper/apart.typ is Copyright 2026 Jason Carver.

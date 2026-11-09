@@ -1,0 +1,62 @@
+version = 1
+SPDX-PackageName = "swarmgraph"
+SPDX-PackageDownloadLocation = "https://github.com/tms7331/apart-research-sprint-swarmgraph"
+
+# Which license covers which path. The license texts are in LICENSES/. Everything is
+# CC-BY-4.0 unless a later table says otherwise, and for a file several tables match,
+# the last one wins. The README's License section says the same in prose.
+
+# Prose, notes, specs, reports, data and run logs, the paper and the slides.
+[[annotations]]
+path = "**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Thomas Redfern"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Code and config.
+[[annotations]]
+path = [
+  "swarmgraph/**.py", "paper/**.py", "scripts/**.py", "tests/**.py", "bin/**", "paper/lib.typ",
+  "configs/**", ".gitignore", "pyproject.toml", "uv.lock",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Thomas Redfern"
+SPDX-License-Identifier = "MIT"
+
+# The paper build, preexisting code ported from the AI Collusion Research Sprint
+# (github.com/carver/apart-research-collusion-sprint-2026, commit 5134da7), where it is
+# Copyright 2026 Jason Carver and Thomas Redfern. paper/README.md lists these files.
+[[annotations]]
+path = [
+  "paper/__init__.py", "paper/__main__.py", "paper/build.py", "paper/checks.py", "paper/figures.py",
+  "paper/git.py", "paper/ledger.py", "paper/typeset.py", "paper/watch.py", "paper/lib.typ",
+  "paper/data/__init__.py", "bin/build-paper",
+  "tests/test_paper_build.py", "tests/test_paper_checks.py", "tests/test_paper_citations.py",
+  "tests/test_paper_cli.py", "tests/test_paper_ledger.py", "tests/test_paper_lock.py",
+  "tests/test_paper_sources.py", "tests/test_paper_watch.py",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Jason Carver", "2026 Thomas Redfern"]
+SPDX-License-Identifier = "MIT"
+
+# The paper build's README, ported with the build and since adapted. It is prose.
+[[annotations]]
+path = "paper/README.md"
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Jason Carver", "2026 Thomas Redfern"]
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# The paper's Typst template, copied from Jason's earlier run (apart-oneshot-collusion,
+# 2026-10-21/22) by way of the AI Collusion Research Sprint: preexisting code.
+[[annotations]]
+path = "paper/apart.typ"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Jason Carver"
+SPDX-License-Identifier = "MIT"
+
+# The paper's font, Old Standard TT.
+[[annotations]]
+path = "paper/fonts/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2011 The Old Standard Project Authors (amkryukov@gmail.com)"
+SPDX-License-Identifier = "OFL-1.1"

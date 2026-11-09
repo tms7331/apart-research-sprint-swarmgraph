@@ -175,8 +175,8 @@
 
 // --- Step 1: reproducing the fragmentation result ---------------------------------------------------------------
 #labeled-figure-slide("tb-figure", label: [Step 1], title: [Reproducing the fragmentation result])[One team of
-  three agents, judged by the same LLM monitor in two ways: reading each agent individually, and reading the whole
-  team together.]
+  three agents, which the same LLM monitor reads in two ways: each agent individually, and the whole team
+  together.]
 
 // --- Experiment A: a growing fleet ------------------------------------------------------------------------------
 #slide(label: [Experiment A], title: [An agent with #n("sa.budget") tool calls searches the raw log])[
@@ -282,7 +282,7 @@
         P(#term[sink]).]
     ],
     [
-      #step-name[4. Judge][Trace back from the top-scoring actions to the agents the data passed through. The
+      #step-name[4. Monitor][Trace back from the top-scoring actions to the agents the data passed through. The
         LLM monitor reads each of the top #n("sc.groups") groups together, and flags the fleet at
         #n("sc.threshold").]
     ],
@@ -302,7 +302,7 @@
       Next highest: #n("sc.ex.next")
     ], [
       Top group: #n("sc.ex.who") \
-      → judge score #p("sc.ex.judge.top"), flagged \
+      → monitor score #p("sc.ex.judge.top"), flagged \
       Next two groups: #n("sc.ex.judge.rest")
     ]).map(body => text(size: 11.5pt, body)),
   )
@@ -360,8 +360,8 @@
   )
 ]
 
-// --- Experiment C: from flow scores to the judge ---------------------------------------------------------------
-#slide(label: [Experiment C: score and judge], title: [From flow scores to the judge])[
+// --- Experiment C: from flow scores to the monitor -------------------------------------------------------------
+#slide(label: [Experiment C: score and monitor], title: [From flow scores to the monitor])[
   #grid(columns: (1fr, 1fr), column-gutter: 1.6em,
     [
       #set text(size: 13.5pt)
@@ -383,10 +383,10 @@
       + *Find each one's group.* Take the rounds in which the action was hit, and trace back through the actions
         the data came through. Keep those that appear in at least #n("sc.keep") of those rounds: their agents are
         the group. Here: the #n("fx.group.a"). A group already found is skipped.
-      + *Judge.* The LLM monitor reads each of the top #n("sc.groups") groups together, and flags the fleet if any
+      + *Monitor.* The LLM monitor reads each of the top #n("sc.groups") groups together, and flags the fleet if any
         scores #n("sc.threshold") or more.
       #v(0.4em)
-      The flow scores only choose what the judge reads; the judge decides. A leak inside one agent is in that
+      The flow scores only choose what the monitor reads; the monitor decides. A leak inside one agent is in that
       agent's own transcript, which the per-agent monitor reads, so the flow graph looks only for data that
       crosses agents.
     ],
@@ -395,7 +395,7 @@
 
 // --- Experiment C: results --------------------------------------------------------------------------------------
 #figure-slide("sc-figure")[The flow graph catches every split attack, even where the provenance graph fails.]
-#figure-slide("sc-scores")[The judge's scores for attacks and honest fleets never overlap.]
+#figure-slide("sc-scores")[The monitor's scores for attacks and honest fleets never overlap.]
 
 // --- Shortcomings and future work -------------------------------------------------------------------------------
 #slide(title: [Shortcomings and future work])[

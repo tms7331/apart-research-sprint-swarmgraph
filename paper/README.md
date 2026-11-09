@@ -39,7 +39,7 @@ Who ran what (which episodes, monitor views, readings) comes from the logs or th
 
 Cite a source only once someone has read it in full, and say so in `citations.md`'s `read` column. A source known by its catalogue entry, its abstract or what others say of it stays uncited; the build checks every source the paper cites.
 
-An interval belongs to one cell: replies to one model and one prompt, so one condition and market size. A count pooled across cells, like README's three models over two market sizes, has no interval, and `#ci` on it shows a red marker. Its replies come from different distributions, so a Wilson interval over them would be too narrow.
+An interval belongs to one cell: replies to one model and one prompt, so one view of one episode or fleet. A count pooled across cells, like Experiment A's catches over four layouts and two passes, has no interval, and `#ci` on it shows a red marker. Its replies come from different distributions, so a Wilson interval over them would be too narrow.
 
 Put a `#claim` beside any sentence whose wording the data could make false: "most", "fell", "every model". The test gets each key's rate (or a plain value's value), in order:
 
@@ -99,7 +99,7 @@ Each draft page carries a DRAFT watermark and a footer with the commit and build
 | `refs.bib` | the references (BibTeX, rendered in APA) |
 | `citations.md` | the running list of sources: what each supports and where it's used |
 | `lib.typ` | the functions above, and the template with the draft marks |
-| `apart.typ` | the Apart template's layout. Preexisting: from Jason's earlier run, updated to the live template in the AI Collusion Research Sprint project |
+| `apart.typ` | the Apart template's layout. Preexisting: from Jason Carver's earlier run, updated to the live template in the AI Collusion Research Sprint project |
 | `requirements.md` | this sprint's rules for the report, fetched 2026-11-07 |
 | `data/` | the data sources |
 | `ledger.py`, `figures.py`, `build.py`, `typeset.py`, `checks.py`, `git.py`, `__main__.py` | the build |

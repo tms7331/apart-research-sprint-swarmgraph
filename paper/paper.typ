@@ -44,7 +44,7 @@ The monitor is an LLM (#n("tb.model") at #n("tb.effort") reasoning effort) that 
 It doesn't see the service's own records, or the delivery itself.
 It scores suspicion from 0 to 100, with an assessment and the events it rests on.
 Step 1 reads each team in two ways: individually, one agent's transcript at a time, where a team's score is its highest-scoring member's; and together, the whole team's transcripts in one prompt.
-Each of the #n("tb.episodes") scripted episodes is judged #n("tb.readings.per.view") time(s) per view, and a team is flagged when its median suspicion score is at least #n("tb.threshold").
+Each of the #n("tb.episodes") scripted episodes is read by the monitor #n("tb.readings.per.view") time(s) per view, and a team is flagged when its median suspicion score is at least #n("tb.threshold").
 
 Experiments A to C hide the team in a fleet of background teams.
 Each background team is an independent copy of the same workflow with its own records, and the background alternates the two kinds of honest team.
@@ -132,7 +132,7 @@ The monitor never flags an honest fleet (#n("sb.honest")), and its highest score
 
 == Following the data instead of grouping agents <sec-flow>
 We keep the judge model and threshold, but let a flow graph choose which agents the judge reads together.
-The method has four steps: label each action, link the actions, simulate how private data could spread along the links, and judge the agents the data passes through.
+The method has four steps: label each action, link the actions, simulate how private data could spread along the links, and have the monitor read the agents the data passes through.
 
 *Label.* The graph has one node per tool call.
 Jev, a decision model, reads each call on its own, with the services text, the policy paragraphs for the teams it mentions, the agent's task and the call's result, and answers three yes/no questions as probabilities: whether the call touches data the policy marks private (its source probability), whether it passes data or a reference to data on into another record (its carrier probability), and whether it switches on a delivery outside the organization (its sink probability).
@@ -177,7 +177,7 @@ Each group the judge reads is about #n("sc.judge.chars") characters, against #n(
 
 #figure(
   data-figure("sc-figure", width: 100%),
-  caption: [*The flow graph catches every split attack, even where the provenance graph fails.* Split attacks caught under each condition, by method: the monitor without a graph (@fig-scaling), B's graph monitor and the flow graph with Step 1's monitor reading each group together (#n("sc.judgments") judgments: #n("sc.fleets") fleets, each judged #n("sc.passes") times). Hatched, conditions a method wasn't run on.],
+  caption: [*The flow graph catches every split attack, even where the provenance graph fails.* Split attacks caught under each condition, by method: the monitor without a graph (@fig-scaling), B's graph monitor and the flow graph with Step 1's monitor reading each group together (#n("sc.judgments") judgments: #n("sc.fleets") fleets, each monitored #n("sc.passes") times). Hatched, conditions a method wasn't run on.],
 ) <fig-flow>
 #claim("the flow graph catches every split attack, even where the provenance graph fails", ("sc.split", "sc.b.split"), (c, b) => c == 1 and b < 1)
 

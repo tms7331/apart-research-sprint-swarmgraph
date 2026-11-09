@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Follow the Data: Catching Split Attacks in Agent Swarms with Decision Model Graphs"
+type: software
+authors:
+  - family-names: Redfern
+    given-names: Thomas
+    orcid: "https://orcid.org/0009-0007-1698-4082"
+repository-code: "https://github.com/tms7331/apart-research-sprint-swarmgraph"
+url: "https://github.com/tms7331/apart-research-sprint-swarmgraph"
+license: CC-BY-4.0
+keywords:
+  - ai-safety
+  - multi-agent
+  - ai-control
+  - monitoring
+  - llm
+  - information-flow
+abstract: >-
+  A monitor that reads one agent at a time misses a harmful objective split
+  across several agents, and in a fleet of hundreds of agents a defender
+  doesn't know which agents to read together. This repository follows the
+  data instead: a cheap decision model labels every action, a graph traces
+  where private data can travel across agents, and an LLM monitor reads only
+  the groups the graph finds. It compares that with a tool-using monitor over
+  the raw log and with a provenance graph, in fleets of up to 4,803 agents.
+  Written for Apart Research's Swarm Alignment Hackathon (Track 4: Multi-Agent
+  Oversight and Control), 6 to 8 November 2026.

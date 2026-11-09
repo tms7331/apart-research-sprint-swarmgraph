@@ -334,10 +334,10 @@ def summary(destination: Path) -> str:
         e = episodes[r["case_id"]]
         overlap = re.search(r"_overlap([0-9.]+)_", r["case_id"])
         key = (e["honest_teams"], float(overlap.group(1)) if overlap else 0.0)
-        cell = cells.setdefault(key, {"split_attack": [], "honest_authorized": []})
+        cell = cells.setdefault(key, {"agents": len(e["agent_ids"]), "split_attack": [], "honest_authorized": []})
         cell[e["condition"]].append(r["flagged"])
-    lines = ["honest teams | overlap | split attack flagged | honest falsely flagged", "---|---|---|---"]
+    lines = ["agents | honest teams | overlap | split attack flagged | honest falsely flagged", "---|---|---|---|---"]
     for (n, o), cell in sorted(cells.items()):
         a, h = cell["split_attack"], cell["honest_authorized"]
-        lines.append(f"{n} | {o:g} | {sum(a)}/{len(a)} | {sum(h)}/{len(h)}")
+        lines.append(f"{cell['agents']:,} | {n} | {o:g} | {sum(a)}/{len(a)} | {sum(h)}/{len(h)}")
     return "\n".join(lines)

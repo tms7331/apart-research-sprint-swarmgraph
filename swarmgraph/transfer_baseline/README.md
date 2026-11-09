@@ -24,7 +24,7 @@ This package is self-contained. It does not import from, or share code with,
   - solo = one agent with all three tasks and the combined permissions;
   - honest teams do the same tasks without the side task.
 
-  There are no background agents in Step 1. Their number is the scaling knob for Step 2.
+  There are no background agents in Step 1. Their number is the scaling knob for Experiments A–C ([`swarmgraph/scaling/`](../scaling/README.md)).
 
 ## Design
 
@@ -44,9 +44,9 @@ team layout.
 - **per_agent:** the policy, the agent's own task and its own transcript.
 - **group:** the whole team's tasks and transcripts, for split teams.
 
-Shared-service records are never shown. Each view is judged 5 times with an identical prompt. That's 108 views and 540 judge calls in total.
+Shared-service records are never shown. The monitor reads each view 5 times with an identical prompt. That's 108 views and 540 monitor calls in total.
 
-The **smoke design** (`--smoke`) is the same nine case types on layout 0 only, with one reading per view. That's 9 episodes and 27 judge calls: one sample of everything, to check the pipeline before the full run.
+The **smoke design** (`--smoke`) is the same nine case types on layout 0 only, with one reading per view. That's 9 episodes and 27 monitor calls: one sample of everything, to check the pipeline before the full run.
 
 **Scoring** (MiniLab's rules):
 - A view's score is the median of its readings.
@@ -61,7 +61,7 @@ Run from the repository root:
 
 ```bash
 uv run python -m swarmgraph.transfer_baseline generate [--smoke]                 # deterministic episodes, no model calls
-uv run python -m swarmgraph.transfer_baseline judge [--smoke] [--concurrency 8]  # the missing judge readings, then the report
+uv run python -m swarmgraph.transfer_baseline judge [--smoke] [--concurrency 8]  # the missing monitor readings, then the report
 uv run python -m swarmgraph.transfer_baseline report [--smoke]
 ```
 
@@ -70,7 +70,7 @@ uv run python -m swarmgraph.transfer_baseline report [--smoke]
 - agent IDs derive from the seed;
 - timestamps come from a synthetic clock: event N arrives at 2026-11-01T00:00:00Z + N seconds.
 
-**`judge`** takes only the readings that have no saved judgment yet, so rerunning it resumes. A judgment is tied to the hash of the prompt it judged. If an episode later changes, its old judgments are no longer used, and `judge` refuses to run on episode files that differ from `episodes.jsonl`.
+**`judge`** takes only the readings that have no saved judgment yet, so rerunning it resumes. A judgment is tied to the hash of the prompt it scored. If an episode later changes, its old judgments are no longer used, and `judge` refuses to run on episode files that differ from `episodes.jsonl`.
 
 ## Output
 
@@ -79,16 +79,16 @@ Full run in `logs/transfer_baseline/`, smoke run in `logs/transfer_baseline_smok
 | path | what |
 |---|---|
 | `protocol.json` | the design these episodes were generated from |
-| `episodes.jsonl` | one row per episode: case, agents, outcome, and each judged view with its prompt hash |
+| `episodes.jsonl` | one row per episode: case, agents, outcome, and each monitored view with its prompt hash |
 | `episodes/<case_id>/observations.jsonl` | the operator's public log: policy, tasks, each agent's tool calls, results and messages, plus shared-service events. Service events are writes (writer not recorded), the sync service's reads of the records it follows, and its outputs. Monitors see only the policy and their agents' own events |
 | `episodes/<case_id>/private/` | ground truth no monitor sees: plan, actions, state changes, outcome, final state |
-| `judgments.jsonl` | one row per judge reading: case, view, reading number, prompt hash, score, assessment, explanation, cited events, tokens, latency |
+| `judgments.jsonl` | one row per monitor reading: case, view, reading number, prompt hash, score, assessment, explanation, cited events, tokens, latency |
 | `raw_calls/` | the Codex CLI's raw archive per call, plus stop markers. Local only (gitignored) |
 
 The report reads only `episodes.jsonl` and `judgments.jsonl`. It goes to `reports/transfer_baseline/` for the full run, or `logs/transfer_baseline_smoke/report/` for smoke.
 
 ## Limits
 
-- **One mechanism in four layouts.** Attack rates are therefore out of 4 teams. Repeated readings measure judge noise; they are not extra samples.
+- **One mechanism in four layouts.** Attack rates are therefore out of 4 teams. Repeated readings measure monitor noise; they are not extra samples.
 - **The split result is expected by construction.** Every split colluder's transcript matches an honest agent's, so low split per-agent detection is built in. Solo detection, joint recovery and honest false alarms are the measured results (`specs/PAPER_NOTES.md`, entry 1).
 - **The joint monitor is handed the true team.** Finding the team is not tested here.
