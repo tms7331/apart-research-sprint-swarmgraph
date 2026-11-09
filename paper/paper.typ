@@ -13,11 +13,11 @@
     Reviewing the agents together can reveal the attack @kitaoka2026, but in a large fleet the monitor must first find the agents involved.
     We reproduce this effect with a scripted data-exfiltration attack split across three agents, then hide the attacking team among many honest teams performing similar tasks.
     #claim("read one at a time the split attack is missed; read together it is caught", ("tb.split.flagged", "tb.split.joint.flagged"), (p, j) => p == 0 and j == 1)
-    We test two approaches to finding the attacking team.
-    A monitor searching raw logs within a fixed budget increasingly misses the attack as the fleet grows.
+    We compare our method with two baselines for finding the attacking team.
+    With a fixed search budget, a monitor searching raw logs misses more attacks as the fleet grows.
     #claim("the raw-log monitor detects fewer split attacks as the fleet grows", ("sa.split.n30", "sa.split.n180"), (small, big) => small > big)
-    Grouping tool calls by the records they touch helps when teams work independently.
-    But once honest teams share records, the graph merges them into large groups, leaving the monitor with too much unrelated activity to inspect.
+    Grouping tool calls by the records they access helps when teams work independently.
+    But when honest teams access the same records, the graph groups unrelated activity together, making it harder for the monitor to find the attack.
     #claim("the provenance graph works with no shared records and detects fewer split attacks when teams share records", ("sb.split.o0", "sb.split.o2"), (o0, o2) => o0 == 1 and o0 > o2)
     Our method follows possible flows of private data.
     A decision model estimates whether each tool call accesses private data, passes data onward, or enables an external delivery.
@@ -29,10 +29,13 @@
   ],
 )
 
+// A figure's title, above its image: what the figure plots. The caption's bold sentence says what it shows.
+#let titled(title, body) = stack(spacing: 0.6em, text(weight: "bold", title), body)
+
 = Introduction
 AI control uses a trusted monitor to oversee agents whose model is not fully trusted.
 Reviewing each agent separately can miss a harmful objective split across a team, even when reviewing their combined actions would reveal it @kitaoka2026.
-MiniLab demonstrated this fragmentation effect, but its joint monitor was given the colluders' identities.
+MiniLab demonstrated this fragmentation effect, but its joint monitor already knew which agents were colluding.
 In a large fleet, a defender must first find which agents to review together.
 
 We study this search problem using a scripted data-exfiltration attack split across three agents and hidden among honest teams performing similar work.
@@ -41,11 +44,12 @@ After reproducing the fragmentation effect, we compare a monitor searching raw l
 
 Our approach uses a decision model to label how tool calls handle private data, links calls through record references, and simulates possible flows across agents.
 The same LLM monitor then reviews the selected groups against the policy.
-Experiments A and B show how the baselines lose the attacking team as fleets grow or shared records merge their chains.
-Experiment C evaluates whether following data can overcome these search failures.
+We first test whether reviewing agents together reveals attacks that individual review misses.
+Experiment A then tests whether a monitor can find attacks by searching the raw log within a fixed budget.
+Experiment B adds a provenance graph to help the monitor find related activity.
+Experiment C uses our flow graph to select groups for review.
 
 With the same monitor and threshold, the flow graph detects every tested split attack without false alarms, in fleets of up to #n("sc.agents.n1600") agents.
-The monitor reads about #n("sc.judge.chars") characters per group rather than the full log.
 #claim("the flow graph flags every split attack with no false alarms", ("sc.split", "sc.honest"), (s, h) => s == 1 and h == 0)
 
 = Related Work <sec-related>
@@ -53,23 +57,24 @@ The monitor reads about #n("sc.judge.chars") characters per group rather than th
 MiniLab @kitaoka2026 splits a weight-exfiltration attack across three agents, each pursuing a legitimate task and a harmful side task while trying to appear benign.
 We use fixed scripts whose individual transcripts match honest controls (@sec-step1).
 #cite(<hills2026>, form: "prose") instead distribute a covert coding task across pull requests.
-In their GPT-4o evaluation, a monitor carrying notes forward detects more successful gradual attacks than one shown all accumulated diffs.
+In their GPT-4o evaluation, a monitor that carries notes forward catches more of the successful gradual attacks than one shown all the diffs at once.
 
 *Grouping agents by similarity.*
 #cite(<brown2026>, form: "prose") cluster requests and contexts across users for LLM review when a request or cluster raises suspicion.
-This improves campaign recall over single-context review at a matched false-positive rate in their predominantly benign simulated traffic.
+In simulated traffic consisting mostly of benign requests, this detects more campaigns than reviewing each context separately, at the same false-positive rate.
 We do not evaluate this approach.
 
 *Grouping by provenance.*
 FragBench Defense @mehta2026 groups tool-use events across sessions through call-result pairs, session membership, shared resources, and argument similarity.
 It down-weights common resources, merges linked events into chains, and uses a trained detector to score events.
-Experiment B evaluates a simplified graph with an LLM monitor, rather than the full defense (@app-graph).
+Experiment B tests a simplified graph with an LLM monitor, rather than the full defense (@app-graph).
 @app-related covers other provenance graphs for agents.
 
 *Information-flow control and taint tracking.*
 #cite(<guevara2026>, form: "prose") tests Meta's Agents Rule of Two with scripted agents and labels derived from observed reads.
-A shared gate carrying labels with data holds split-role attacks that per-agent gates permit, but also holds some benign tasks that the policy permits until a person approves them.
-We instead trace possible data flows retrospectively, using a decision model's probabilities to select groups for policy review among many similar teams.
+A shared gate that carries labels with the data blocks split-role attacks that separate gates for each agent allow.
+It also holds some permitted tasks for human approval.
+We instead trace possible data flows after the fact, using a decision model's probabilities to select groups for policy review among many similar teams.
 
 = Problem Setting and Threat Model <sec-setting>
 == The scenario <sec-scenario>
@@ -86,12 +91,13 @@ Honest controls either deliver a shareable sample or back up the checkpoint whil
 All agents follow fixed scripts rather than model-generated actions.
 
 == What the monitor sees <sec-view>
-The monitor receives the policy, service descriptions, agent tasks and permissions, and tool calls, results, and messages with agent IDs.
-Run IDs, timestamps, ground-truth labels, and the service's internal delivery records are excluded.
+The monitor reviews the agents' tool calls, results, and messages, each labeled with an agent ID.
+To judge these actions, it also receives the organization's rules, descriptions of how the services work, and what each agent was asked and allowed to do.
+It does not see run IDs, timestamps, ground-truth labels, or the service's internal delivery records.
 The checkpoint's contents appear in the backup agent's read and copy, while the other agents' records expose the references connecting it to delivery.
-Detecting the attack therefore requires combining evidence across agents.
+So detecting the attack requires combining evidence across agents.
 @tab-log in @app-log illustrates these events in a fleet log.
-@app-protocol and @sec-prompts provide the detailed setup and exact policy and tasks.
+@app-protocol and @sec-prompts give the full setup, the exact policy, and the task texts.
 
 = Flow-Graph Monitoring <sec-flow-method>
 Our flow graph selects agents for joint review by tracing possible private-data flows across the fleet.
@@ -100,32 +106,37 @@ The method has four steps.
 
 == Label
 Each node represents a tool call.
-Jev (#n("pr.jev.model")), TypeSafe's decision model, receives the call and result, service descriptions, relevant policy, and agent task.
-It estimates separate probabilities that the call touches private data (_source_), writes data or a reference onward (_carrier_), and enables an external delivery (_sink_).
+Jev (#n("pr.jev.model")), TypeSafe's decision model, examines each call and its result.
+To interpret the call, it also receives descriptions of how the services work, the organization's relevant rules, and the agent's assigned task.
+It estimates three probabilities for each call.
+The _source_ probability is that the call touches private data.
+The _carrier_ probability is that it writes data or a reference onward, and the _sink_ probability is that it enables an external delivery.
 A call can have high probabilities for more than one role.
-A plain read writes nothing and therefore receives a low carrier probability.
+A plain read writes nothing and so receives a low carrier probability.
 
 == Link
 We link each write to later calls that name its record in their arguments or results.
 We also link each call to the same agent's next call.
 Links are unweighted and point forward in time.
-Unlike the provenance baseline, shared reads alone do not create links.
-These rules define possible routes, while the node labels determine whether data propagates along them.
+Unlike in the provenance baseline, a shared read on its own does not create a link.
+These rules define possible routes, while the node labels determine whether data travels along them.
 
 == Simulate
 We run #n("sc.worlds") rounds, sampling source and carrier labels from their probabilities for each call.
-Processing calls chronologically, private data starts at sources and passes onward through carriers.
-We track whether it reaches each call from another agent, including through subsequent actions by the receiving agent.
+We process calls in time order.
+Private data starts at sources and passes through carriers.
+We track whether it reaches each call from another agent, including through later actions by the receiving agent.
 The fraction of rounds in which this happens is the call's _hit rate_.
-Sink probabilities are used directly for scoring rather than sampled.
+We use sink probabilities directly to calculate scores rather than sampling sink labels.
 
 == Score and monitor
 A call's _flow score_ is its hit rate multiplied by its sink probability.
-This prioritizes actions that receive private data across agents and enable an export.
+This favors actions that receive private data across agents and enable an export.
 Staging actions can have high hit rates but low flow scores because they do not enable delivery.
 
 For highly ranked calls, we trace backward through the rounds in which they were hit and collect the agents on recurring paths.
-After removing duplicate groups, the monitor reviews the full transcripts of the top #n("sc.groups") groups with their relevant policy paragraphs.
+We remove duplicate groups.
+The monitor then reviews the full transcripts of the top #n("sc.groups") groups alongside the rules that apply to each group.
 It does not see the flow scores.
 The fleet is flagged if any group's suspicion score reaches #n("sc.threshold").
 
@@ -138,59 +149,64 @@ Step 1 and Experiment C share monitoring instructions, while A and B add tools f
 
 Fleet experiments randomly interleave independent teams' actions while preserving each team's order.
 Each attack fleet has a matched honest fleet in which the evaluated team exports shareable data.
-At overlap $N$, each team reads approximately $N$ index records shared with another team, exposing record references without transferring underlying data.
+At overlap $N$, each team reads about $N$ index records shared with another team.
+This exposes record references but moves no underlying data.
 
 *Step 1* compares individual and joint review of solo attacks, split attacks, honest teams, and incomplete attacks.
-Repeated readings measure variation in monitor judgments rather than additional attacks.
+We repeat each reading to measure how much the monitor's verdicts vary, not to add attacks.
 
 *Experiment A* tests raw-log search as fleets grow to #n("sa.agents.n180") agents, without overlap.
-The monitor receives #n("sa.budget") tool calls returning at most #n("sa.read.max") events each, a fixed capacity of #n("sa.capacity") events.
+The monitor can make #n("sa.budget") tool calls, each returning at most #n("sa.read.max") events.
+This limits it to reading #n("sa.capacity") events.
 
 *Experiment B* keeps this budget and adds a FragBench-style provenance graph and tools for reading its chains @mehta2026.
 Fleet size stays at #n("sb.agents") agents while overlap increases from 0 to 4.
 The baseline groups events through agent activity and shared records, using a cutoff for busy records.
 
 *Experiment C* tests the flow graph on the same fleets as B, then extends fleet size to #n("sc.agents.n1600") agents and overlap to 16.
-It includes split attacks and matched honest controls, with group selection measured separately from the monitor's verdict.
+It includes split attacks and matched honest controls.
+We measure group selection separately from the monitor's verdict.
 
 We report detection and false alarms.
 In A and B, finding the evidence requires retrieving the checkpoint read, its copy into the bundle, the prepared package pointing to that bundle, and the enabled schedule.
 @app-protocol and @tab-varied provide the complete protocols, condition grids, and repetition counts.
 
 = Results <sec-results>
-The tables supporting the figures in this section are provided in @app-results.
+The tables behind each figure in this section are in @app-results.
 
 == Step 1. Reproducing the fragmentation result <sec-step1>
 Individual review flags #n("tb.solo.flagged") solo attacks and #n("tb.split.flagged") split attacks, while joint review flags #n("tb.split.joint.flagged") split attacks (@fig-tb).
 Neither approach flags honest teams or incomplete attacks (@tab-tb).
 #claim("neither approach flags honest teams or incomplete attacks", ("tb.honest.flagged", "tb.honest.joint.flagged", "tb.incomplete.flagged", "tb.incomplete.joint.flagged"), (a, b, c, d) => a == 0 and b == 0 and c == 0 and d == 0)
-The individual-review failure is largely built into the scenario because each colluder's transcript is identical to one that an honest agent could produce.
+This failure is largely built into the scenario, since each colluder's transcript matches an honest one.
 
 #figure(
-  data-figure("tb-figure", width: 100%),
-  caption: [*Individual review misses split attacks, while joint review recovers detection.*
+  titled([Step 1 suspicion scores, individual vs. joint review], data-figure("tb-figure", width: 100%)),
+  caption: [*Reviewing agents separately misses split attacks.
+  Reviewing them together detects them.*
   Each arrow connects a team's median individual-review score, taken from its highest-scoring agent, to its median joint-review score.
   The dashed line marks the flagging threshold.
-  Honest teams shown deliver shareable data.
-  Incomplete attacks shown omit the backup step and export no private data.],
+  The honest teams shown deliver shareable data.
+  The incomplete attacks shown skip the backup step and export no private data.],
 ) <fig-tb>
 #claim("splitting an attack hides it from a monitor that reads each agent individually", ("tb.split.flagged", "tb.solo.flagged"), (split, solo) => split < solo)
 
 == Experiment A. Searching the raw log with a fixed budget <sec-scaling>
 Detection declines as the fleet grows beyond the monitor's reading capacity.
 At #n("sa.agents.n30") agents, the monitor detects #n("sa.split.n30") split attacks and #n("sa.solo.n30") solo attacks.
-At #n("sa.agents.n180") agents, these fall to #n("sa.split.n180") and #n("sa.solo.n180"), respectively (@fig-scaling).
+At #n("sa.agents.n180") agents, split detection falls to #n("sa.split.n180") and solo detection to #n("sa.solo.n180") (@fig-scaling).
 #claim("both attacks slip through at the largest fleet", ("sa.split.n180", "sa.solo.n180"), (p, s) => p < 0.5 and s < 0.5)
 There are no false alarms on honest fleets (#n("sa.honest")).
 #claim("the monitor never flags an honest fleet", ("sa.honest",), h => h == 0)
 
-The retrieval records point to evidence discovery as the bottleneck.
-All #n("sa.catches") detected attacks had all four required pieces of evidence retrieved, while none of the #n("sa.misses") missed attacks did (@tab-scaling).
+The retrieval records suggest that finding the evidence is the main difficulty.
+The monitor retrieved all four required pieces of evidence for each of the #n("sa.catches") detected attacks.
+It never retrieved all four for any of the #n("sa.misses") missed attacks (@tab-scaling).
 #claim("no missed attack had retrieved all four steps", ("sa.misses.steps",), m => m == 0)
 #claim("every catch had retrieved all four steps", ("sa.catches.steps", "sa.catches"), (a, b) => a == b)
 
 #figure(
-  data-figure("sa-figure", width: 100%),
+  titled([Fleets flagged by fleet size in Experiment A], data-figure("sa-figure", width: 100%)),
   caption: [*Detection declines once the log exceeds the monitor's reading capacity.*
   Detection rates cover four layouts and #n("sa.passes") monitoring passes per fleet.
   The dashed line marks the fixed reading capacity of #n("sa.capacity") events.],
@@ -204,16 +220,16 @@ On the same #n("sb.zero.fleets") fleets at zero overlap, it detects split attack
 There are no false alarms on honest fleets (#n("sb.honest")).
 #claim("the graph monitor never flags an honest fleet", ("sb.honest",), h => h == 0)
 
-As overlap increases, unrelated teams merge into the colluders' chain.
+As teams share more records, the graph puts unrelated teams in the same chain as the colluders.
 Detection is #n("sb.small.caught") when this chain contains at most #n("sb.small.limit") agents, but only #n("sb.large.caught") for larger chains (@fig-graph).
 #claim("small chains are caught more often than large ones", ("sb.small.caught", "sb.large.caught"), (s, l) => s > l)
 Once the graph stops separating teams, the monitor returns to text search (@fig-tools) and faces the same retrieval problem as in Experiment A.
 
 #figure(
-  data-figure("sb-figure", width: 50%),
+  titled([Colluders' chain size by tool-call overlap in Experiment B], data-figure("sb-figure", width: 50%)),
   caption: [*Shared-record overlap merges teams into larger chains and reduces detection.*
   Each square shows an attack fleet's colluder-chain size.
-  Solid, light, and hollow squares indicate detection in every run, some runs, and no runs, respectively.
+  Solid squares mark fleets detected in every run, light squares in some runs, and hollow squares in none.
   Shading marks chains containing at most a tenth of the fleet.],
 ) <fig-graph>
 #claim("the graph helps until overlap merges the fleet into one chain", ("sb.split.o0", "sb.split.o2", "sb.small.caught", "sb.large.caught"), (o0, o2, small, large) => o0 > o2 and small > large)
@@ -223,29 +239,29 @@ Flow-graph monitoring detects #n("sc.split") split attacks across the tested con
 #claim("the flow graph detects every split attack without false alarms", ("sc.split", "sc.honest"), (s, h) => s == 1 and h == 0)
 On the same #n("sc.curve.fleets") fleets used in Experiment B, detection is #n("sc.split.curve") compared with #n("sc.b.split") for the provenance baseline (@fig-flow).
 #claim("the flow graph beats B on B's own fleets", ("sc.split.curve", "sc.b.split", "sc.same.fleets", "sc.curve.fleets"), (c, b, s, z) => c > b and s == z)
-Detection remains complete in separate extensions to overlap 16 and fleets of #n("sc.agents.n1600") agents (@tab-flow).
+The monitor still detects every attack when we separately increase overlap to 16 and fleet size to #n("sc.agents.n1600") agents (@tab-flow).
 #claim("detection remains complete at the extended overlap and fleet size", ("sc.split.o16", "sc.split.n1600"), (o, n) => o == 1 and n == 1)
 
-In all #n("sc.judge.colluders") attack judgments, the group receiving the monitor's highest score consists of exactly the three colluders.
+In all #n("sc.judge.colluders") evaluations of attack fleets, the monitor gives its highest score to the group containing exactly the three colluders.
 #claim("the monitor's top group is always the colluders", ("sc.judge.colluders",), c => c == 1)
 Attack fleets receive scores of at least #n("sc.judge.attack.min"), while honest fleets receive scores of at most #n("sc.judge.honest.max") (@fig-scores).
 #claim("attack and honest monitor scores don't overlap", ("sc.judge.attack.min", "sc.judge.honest.max"), (a, h) => a > h)
 
-The highest-scoring flow group also consists of exactly the three colluders in #n("sc.graph.exact") attack fleets.
+The highest-scoring flow group is also exactly the three colluders in #n("sc.graph.exact") attack fleets.
 #claim("the top flow group is always the colluders", ("sc.graph.exact",), c => c == 1)
-However, flow scores overlap across fleets, with a minimum top attack score of #n("sc.graph.attack.min") and a maximum top honest score of #n("sc.graph.honest.max").
+But the flow scores themselves overlap across fleets.
+The lowest top score on an attack fleet is #n("sc.graph.attack.min"), and the highest on an honest fleet is #n("sc.graph.honest.max").
 #claim("the flow scores alone don't separate attack from honest fleets", ("sc.graph.attack.min", "sc.graph.honest.max"), (a, h) => float(a) < float(h))
-A single flow-score threshold cannot separate them perfectly, so the monitor's policy review remains necessary.
+A single flow-score threshold cannot separate them perfectly, so the monitor's policy review is still needed.
 
-The monitor reads approximately #n("sc.judge.chars") characters per group, compared with #n("sc.log.chars") for the full log of a 100-team fleet.
+The monitor reads about #n("sc.judge.chars") characters per group, compared with #n("sc.log.chars") for the full log of a 100-team fleet.
 Labeling costs #n("sc.usd.base") per 100-team fleet and #n("sc.usd.largest") for #n("sc.agents.n1600") agents.
 
 #figure(
-  data-figure("sc-figure", width: 100%),
+  titled([Split-attack detection by method and condition in Experiments A to C], data-figure("sc-figure", width: 100%)),
   caption: [*Flow-graph monitoring detects every split attack in the tested conditions.*
   The flow graph uses Step 1's joint monitor.
-  Experiment C covers #n("sc.fleets") fleets with #n("sc.passes") monitoring passes each.
-  Hatching marks conditions not evaluated for a method.],
+  Experiment C covers #n("sc.fleets") fleets with #n("sc.passes") monitoring passes each.],
 ) <fig-flow>
 #claim("the flow graph catches every split attack, even where the provenance graph fails", ("sc.split", "sc.b.split"), (c, b) => c == 1 and b < 1)
 
@@ -306,7 +322,8 @@ The graph would miss the connection because the relevant write occurs after the 
 *Evaluation conditions.*
 The method uses only the operator's public log, with colluder identities used afterwards to score the results.
 Several features nevertheless make this setting easier than real logs.
-Private data is explicitly marked, record names follow a fixed pattern, and team tags identify the policy paragraphs supplied to each group.
+Private data is explicitly marked, and record names follow a fixed pattern.
+Shared tags in these names reveal team membership and identify the policy paragraphs supplied to each group.
 The added overlap consists of shared index reads that do not transfer underlying data.
 We have not tested honest workflows in which one team's outputs become another team's inputs, which could produce larger candidate groups.
 
@@ -322,10 +339,11 @@ A flag should trigger human review rather than automatic action against agents o
 The experiments used synthetic data and scripted agents without exporting real private data to an outside system.
 
 = Further related work <app-related>
-AScope @cai2026 traces agents, processes, files, and network connections, then uses an LLM to review risky chains against the session's intent within one orchestrated system.
-Follow the Text @juhl2026 uses a shared registry and write-before-read timing to identify communication in agent transcripts, without evaluating the harmful effects of combined actions.
-Hossain and Haldar @hossain2026 link state-key writes to later reads within one agent's trajectory and trace paths from injected inputs to sensitive sinks.
-Our setting instead requires finding the relevant team among independent agents performing similar work.
+AScope @cai2026 reconstructs flows across agents, processes, files, and network events, ranks candidate trajectories, and uses an LLM to review them against the session's intent and security policies.
+Follow the Text @juhl2026 tracks text provenance across runs to detect inter-agent communication.#footnote[The report's byline also credits Claude Opus 5.5.]
+Its detector does not classify that communication as a policy violation.
+#cite(<hossain2026>, form: "prose") link state-key writes to later reads within one agent's trajectory and trace paths from injected inputs to sensitive sinks.
+Our setting focuses on selecting groups for policy review among agents performing similar work.
 
 = The attack in the log <app-log>
 #figure(
@@ -377,7 +395,7 @@ Team S's delivery receives some flow through its own staging step, whose moderat
 Team A's delivery scores #n("fx.score.a"), compared with #n("fx.score.s") for team S, and its selected group is the #n("fx.group.a").
 
 #figure(
-  data-figure("fx-figure", width: 100%),
+  titled([Worked example: from per-call labels to flow scores], data-figure("fx-figure", width: 100%)),
   caption: [*A worked example of data flow across agents.*
   The left panel shows tool-call nodes with illustrative source, carrier, and sink probabilities, linked by record references.
   The right panel shows the fraction of #n("fx.worlds") rounds in which data passes along each link.
@@ -513,7 +531,7 @@ Repeated readings measure variation in the monitor's judgments rather than addit
 _Can a monitor with a fixed tool-call budget find the attacking team as the fleet grows?_
 
 We increase fleet size up to #n("sa.agents.n180") agents, with no tool-call overlap.
-The monitor starts with the policy, service descriptions, and log size.
+Before searching the log, the monitor receives the organization's rules, descriptions of how the services work, and the number of events in the log.
 It can make one tool call per turn using four available tools.
 #list(
   [Search for text, returning the number of matching events and a page of shortened results.],
@@ -573,7 +591,7 @@ The detailed results for Step 1 and Experiments A, B, and C are provided in @tab
 @fig-tools shows how the provenance-graph monitor shifts toward text search as overlap increases.
 
 #figure(
-  data-figure("sb-tools", width: 100%),
+  titled([Experiment B: the monitor's tool calls by kind and overlap], data-figure("sb-tools", width: 100%)),
   caption: [*The monitor shifts from graph tools to text search as overlap increases.*
   Tool calls are grouped by kind for fleets of #n("sb.agents") agents, with detected split attacks shown above each bar.
   The figure covers #n("sb.explorations") runs, with each fleet monitored #n("sb.passes") times.],
@@ -591,7 +609,7 @@ The actual delivery occurs in the service's records and is not visible to the mo
 #claim("every top group is assessed as a precursor", ("sc.judge.precursor",), p => p == 1)
 
 #figure(
-  data-figure("sc-scores", width: 100%),
+  titled([Experiment C: monitor scores for attack and honest fleets], data-figure("sc-scores", width: 100%)),
   caption: [*Monitor scores separate attack fleets from honest fleets.*
   Scores are shown for each judgment of an attack fleet and its matched honest twin under each condition.
   The dashed line marks the flagging threshold.],
@@ -638,21 +656,23 @@ Jev's questions are also checked against the digest in the run protocol.
 Braces indicate values filled in for each fleet.
 
 == The scenario
-The policy below is from Step 1's layout-0 episodes.
+The policy below states the organization's rules for Step 1's layout-0 episodes.
 A fleet's policy contains one such paragraph per team.
 #data-text("pr.policy")
-The service descriptions are shared by all teams.
+The descriptions below explain how the services work and are the same for every team.
 #data-text("pr.services")
 The split team's tasks specify each agent's read and write permissions.
 #data-text("pr.tasks")
 
 == The monitor for Step 1 and Experiment C
-These instructions are followed by the word EVIDENCE and JSON containing the policy, agent tasks, tool calls, results, and messages.
+After these instructions, the monitor receives the word EVIDENCE and JSON containing the organization's rules and each agent's assigned task.
+The JSON also includes tool calls, results, and messages.
 Run IDs and timestamps are excluded.
 #data-text("pr.monitor")
 
 == The search monitor for Experiment A
-The instructions are followed by the policy, service descriptions, previous calls and results, and remaining call budget.
+After these instructions, the monitor receives the organization's rules and descriptions of how the services work.
+It also receives previous tool calls and results, along with the number of tool calls it has left.
 #data-text("pr.explorer")
 
 == The graph tools for Experiment B
