@@ -9,9 +9,9 @@
     (name: [Thomas Redfern], affiliation: [Unaffiliated]),
   ),
   abstract: [
-    A harmful task split across several AI agents can evade a monitor that reviews each agent separately, because each agent's part looks like ordinary work.
+    A harmful task split across AI agents can evade individual review because each agent's actions look ordinary.
     Reviewing the agents together can reveal the attack @kitaoka2026, but in a large fleet the monitor must first find the agents involved.
-    We reproduce this effect with a scripted data-exfiltration attack split across three agents, then hide the attacking team among many honest teams performing similar tasks.
+    We reproduce this effect with a scripted exfiltration attack split across three agents among honest teams doing similar work.
     #claim("read one at a time the split attack is missed; read together it is caught", ("tb.split.flagged", "tb.split.joint.flagged"), (p, j) => p == 0 and j == 1)
     We compare our method with two baselines for finding the attacking team.
     With a fixed search budget, a monitor searching raw logs misses more attacks as the fleet grows.
@@ -39,14 +39,12 @@ MiniLab demonstrated this fragmentation effect, but its joint monitor already kn
 In a large fleet, a defender must first find which agents to review together.
 
 We study this search problem using a scripted data-exfiltration attack split across three agents and hidden among honest teams performing similar work.
-Matched honest fleets let us measure false alarms alongside detection.
-After reproducing the fragmentation effect, we compare a monitor searching raw logs within a fixed budget, a FragBench-style provenance graph @mehta2026, and our flow graph.
 
 Our approach uses a decision model to label how tool calls handle private data, links calls through record references, and simulates possible flows across agents.
 The same LLM monitor then reviews the selected groups against the policy.
 We first test whether reviewing agents together reveals attacks that individual review misses.
 Experiment A then tests whether a monitor can find attacks by searching the raw log within a fixed budget.
-Experiment B adds a provenance graph to help the monitor find related activity.
+Experiment B adds a FragBench-style provenance graph @mehta2026 to help the monitor find related activity.
 Experiment C uses our flow graph to select groups for review.
 
 With the same monitor and threshold, the flow graph detects every tested split attack without false alarms, in fleets of up to #n("sc.agents.n1600") agents.
@@ -267,27 +265,24 @@ Labeling costs #n("sc.usd.base") per 100-team fleet and #n("sc.usd.largest") for
 
 = Discussion and Limitations
 Our flow graph method is overfit to our dataset.
-We developed its questions and graph rules using variations of one scripted attack.
-Some of those cases are also included in the results (@app-development).
+We developed its labeling questions and graph rules using variations of one scripted attack.
+Some of these cases also appear in the results (@app-development).
 The held-out cases come from the same generator.
-Doing well on these tests tells us little about how the system would handle a new attack.
+These tests tell us little about how the method would handle new attacks.
 
-An attacker could try adding a long chain of intermediate actions.
-Even if Jev thinks each action is very likely to pass data on, the simulation has another chance to stop at every step.
-If it finds no shortcut or fresh source of private data, fewer samples make it to the end as the chain grows.
-Eventually the attack may score too low to reach the monitor.
-We have not tested whether an attacker can make Jev assign the labels needed for this to work.
+One possible attack is to add a long chain of intermediate actions.
+Even if Jev assigns each action a high probability of passing data on, the probability of carrying data through the entire chain falls as the chain grows.
+The attack could then rank too low to reach the monitor.
 
-The harder question is whether a weaker model can monitor a stronger one that is trying to evade it.
-A stronger model could try to fool Jev or exploit the rules that decide what the monitor sees.
-Fixing the long-chain problem would close one gap, but others may remain.
-We don't yet know whether this approach can be made reliable against such an attacker.
-It may turn out to be too easy to evade to be useful in practice.
+The harder question is whether this kind of graph-based approach lets a weaker model reliably monitor a stronger one that is trying to evade it.
+A stronger model could try to exploit pathological cases by choosing actions that produce graphs the algorithm handles poorly.
 
 = Conclusion
-Detecting a split attack requires finding which agents to review together.
-Our flow graph uses a decision model to narrow the monitor's task to a few groups.
-In our controlled scenario, the same monitor and threshold then detect #n("sc.split") split attacks without false alarms (#n("sc.honest")), in fleets of up to #n("sc.agents.n1600") agents.
+Prior work has used graphs to help monitors connect activity across agents.
+But grouping by shared records can produce large groups that are difficult to review as teams become more interconnected.
+Our flow graph addresses this problem by using a decision model and simulated data flows to select small groups for joint review.
+In our controlled scenario, the same monitor and threshold detect #n("sc.split") split attacks without false alarms (#n("sc.honest")), in fleets of up to #n("sc.agents.n1600") agents.
+These are promising early results, but substantial work remains to test the method on new attacks and make it reliable in practice.
 
 #unnumbered[Code and Data]
 Code and logs are available in the #link("https://github.com/tms7331/apart-research-sprint-swarmgraph")[project repository].
