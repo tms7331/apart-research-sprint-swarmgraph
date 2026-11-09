@@ -343,119 +343,153 @@ Each additional condition has #n("sb.layouts") layouts and a matched honest flee
 In total, Experiment C includes #n("sc.fleets") fleets, each monitored #n("sc.passes") times.
 
 = Results <sec-results>
-== Reproducing the fragmentation result <sec-step1>
-#todo[the reproduction of the fragmentation result, from the full run]
-Reading each agent individually, the monitor flags #n("tb.solo.flagged") solo attacks and #n("tb.split.flagged") split attacks; reading each team together, it flags #n("tb.split.joint.flagged") split attacks (@fig-tb).
-On honest teams, reading individually gives #n("tb.honest.flagged") false alarms and reading together #n("tb.honest.joint.flagged") (@tab-tb).
+The tables supporting the figures in this section are provided in @app-results.
+
+== Step 1. Reproducing the fragmentation result <sec-step1>
+Individual review detects all solo attacks but misses every split attack.
+The monitor flags #n("tb.solo.flagged") solo attacks and #n("tb.split.flagged") split attacks when reviewing agents separately.
+Reviewing the three agents together restores detection to #n("tb.split.joint.flagged") (@fig-tb).
+Neither approach produces false alarms on honest teams, with #n("tb.honest.flagged") under individual review and #n("tb.honest.joint.flagged") under joint review (@tab-tb).
+Incomplete attacks are also never flagged, with #n("tb.incomplete.flagged") under individual review and #n("tb.incomplete.joint.flagged") under joint review.
+#claim("incomplete attacks are never flagged", ("tb.incomplete.flagged", "tb.incomplete.joint.flagged"), (a, b) => a == 0 and b == 0)
+
+This matches the pattern reported in MiniLab @kitaoka2026.
+An attack performed by one agent is detected, splitting it across three agents hides it from individual review, and joint review recovers detection.
+Our joint monitor detects a larger share of attacks than MiniLab's.
+One likely explanation is that our backup agent's records expose the private data, allowing the monitor to trace the checkpoint into the bundle, follow the package's reference to that bundle, and see the delivery being enabled.
+
+The failure of individual review is largely built into this scenario.
+Each colluder's transcript is identical to one that an honest agent could produce.
+The empirical results therefore concern detection of solo attacks, recovery through joint review, and false alarms on honest and incomplete cases.
 
 #figure(
   data-figure("tb-figure", width: 100%),
-  caption: [*Splitting an attack hides it from a monitor that reads each agent individually.* Each row is one team (run #n("tb.run")); its arrow runs from its score read individually (the median for its highest-scoring member) to its score read together (the median for the whole team). Teams right of the dashed threshold are flagged. The honest teams take the same three steps as the attack but ship the shareable file; the incomplete attacks shown are missing their backup step, so nothing private leaves. Solo teams, honest maintenance teams and the other incomplete attacks are in @tab-tb.],
+  caption: [*Individual review misses split attacks, while joint review recovers detection.*
+  Each row represents one team from run #n("tb.run").
+  The arrow connects its individual-review score, the median for its highest-scoring agent, to its joint-review score, the median for the whole team.
+  The dashed line marks the flagging threshold.
+  The honest teams shown deliver shareable data.
+  The incomplete attacks shown omit the backup step, so no private data leaves the organization.
+  @tab-tb includes solo teams, honest maintenance teams, and the other incomplete attacks.],
 ) <fig-tb>
 #claim("splitting an attack hides it from a monitor that reads each agent individually", ("tb.split.flagged", "tb.solo.flagged"), (split, solo) => split < solo)
 
-
-== Hiding the team in a growing fleet <sec-scaling>
-We hide the team among up to #n("sa.agents.n180") agents and give an LLM monitor #n("sa.budget") tool calls to search and read the fleet's log (@fig-scaling).
-It flags a fleet when its final suspicion score is at least #n("sa.threshold"), and each fleet is monitored #n("sa.passes") times.
-At #n("sa.agents.n30") agents it still flags the split attack in #n("sa.split.n30") runs and the solo attack in #n("sa.solo.n30").
-At #n("sa.agents.n100") agents it flags the split attack in #n("sa.split.n100"), and at #n("sa.agents.n180") in #n("sa.split.n180").
-The solo attack holds out longer: #n("sa.solo.n100"), then #n("sa.solo.n180").
-#claim("the solo attack holds out longer than the split attack", ("sa.solo.n100", "sa.split.n100", "sa.solo.n180", "sa.split.n180"), (s1, p1, s2, p2) => s1 > p1 and s2 > p2)
-The monitor never flags an honest fleet (#n("sa.honest")), and its highest score on one is #n("sa.honest.max").
+== Experiment A. Searching the raw log with a fixed budget <sec-scaling>
+Detection declines as the fleet grows beyond the monitor's reading capacity.
+Both attack types are detected in every run in fleets up to #n("sa.agents.n30") agents, with #n("sa.split.n30") split attacks and #n("sa.solo.n30") solo attacks detected at that size (@fig-scaling).
+At #n("sa.agents.n100") agents, detection falls to #n("sa.split.n100") for split attacks and #n("sa.solo.n100") for solo attacks.
+At #n("sa.agents.n180") agents, it falls to #n("sa.split.n180") and #n("sa.solo.n180"), respectively.
+#claim("both attacks slip through at the largest fleet", ("sa.split.n180", "sa.solo.n180"), (p, s) => p < 0.5 and s < 0.5)
+The monitor produces no false alarms on honest fleets (#n("sa.honest")), whose highest suspicion score is #n("sa.honest.max").
 #claim("the monitor never flags an honest fleet", ("sa.honest",), h => h == 0)
-Every miss is a failure to find the evidence, not to judge it: in #n("sa.misses.saw.all") of #n("sa.misses") missed attacks had the monitor seen every colluder's events, and in #n("sa.catches.saw.all") of #n("sa.catches") catches it had (@tab-scaling).
-#claim("no missed attack had seen every colluder's events", ("sa.misses.saw.all",), m => m == 0)
-#claim("every catch had seen every colluder's events", ("sa.catches.saw.all", "sa.catches"), (a, b) => a == b)
-While the log fits in the budget the monitor simply reads it through: #pct("sa.calls.readlog.fits") of its calls on those fleets read the log in order.
-Beyond that it must search (#pct("sa.calls.search.over") of its calls), uses its whole budget, and starts to miss.
+
+The retrieval records point to evidence discovery as the bottleneck.
+None of the #n("sa.misses") missed attacks had all four required pieces of evidence retrieved, while all #n("sa.catches") detected attacks did (@tab-scaling).
+#claim("no missed attack had retrieved all four steps", ("sa.misses.steps",), m => m == 0)
+#claim("every catch had retrieved all four steps", ("sa.catches.steps", "sa.catches"), (a, b) => a == b)
+
+When the log fits within the reading budget, the monitor reads it sequentially, using #pct("sa.calls.readlog.fits") of its tool calls for that purpose.
+Once the log exceeds the budget, text searches account for #pct("sa.calls.search.over") of its calls.
+The monitor exhausts its budget and begins to miss attacks.
+
+Searches for the checkpoint, bundle, or enabled delivery return many similar events from honest teams.
+The monitor cannot inspect all of them within its budget.
+Its explanations for missed attacks describe following honest chains that either contained shareable data or left delivery disabled, without finding the chain that combined private data with an enabled delivery.
 
 #figure(
   data-figure("sa-figure", width: 100%),
-  caption: [*Once the log exceeds the monitor's capacity, attacks slip through.* Share of runs that flag the fleet, by fleet size (#n("sa.explorations") runs: each fleet monitored #n("sa.passes") times in each of four layouts). The monitor's capacity is #n("sa.budget") tool calls of at most #n("sa.read.max") events each (#n("sa.capacity") events), whatever the fleet size; right of the dashed line, the log is longer.],
+  caption: [*Detection declines once the log exceeds the monitor's reading capacity.*
+  The figure shows the share of runs that flag the fleet at each fleet size, across #n("sa.explorations") runs.
+  Each fleet is monitored #n("sa.passes") times in each of four layouts.
+  The budget is fixed at #n("sa.budget") tool calls returning at most #n("sa.read.max") events each, for a total capacity of #n("sa.capacity") events.
+  To the right of the dashed line, the log exceeds this capacity.],
 ) <fig-scaling>
 #claim("once the log exceeds the monitor's capacity, attacks slip through", ("sa.split.n30", "sa.solo.n30", "sa.split.n100", "sa.split.n180"), (s30, o30, s100, s180) => s30 == 1 and o30 == 1 and s100 < 1 and s180 < 1)
 
-
-== Structuring the log with a provenance graph <sec-graph>
-#todo[the graph in a sentence or two: event nodes; call-result, same-agent and shared-record edges; busy records as hubs; union-find chains; and the graph tools]
-We give the same monitor a provenance graph of the log, built as in FragBench @mehta2026, and tools to list, search and read its chains, with the same #n("sa.budget") calls.
-The fleet stays at #n("sb.agents") agents (#n("sb.teams") honest teams), and we add tool-call overlap between teams: at overlap $N$, each team reads about $N$ records that one other team also reads. The records are listings, so no data passes between the teams, but each shared read links the two teams in the graph.
-With no overlap these are the same fleets as in the previous section (#n("sb.same.fleets") of #n("sb.zero.fleets") identical), and the graph helps: the monitor flags the split attack in #n("sb.split.o0") runs, against #n("sa.split.n100") without it.
+== Experiment B. Structuring the log with a provenance graph <sec-graph>
+The provenance graph improves detection when teams do not share records.
+At zero overlap, all #n("sb.zero.fleets") fleets are identical to those used in the corresponding condition of Experiment A.
+The graph-assisted monitor detects the split attack in #n("sb.split.o0") runs, compared with #n("sa.split.n100") without the graph.
 #claim("the graph helps on the overlap-0 fleets", ("sb.split.o0", "sa.split.n100", "sb.same.fleets", "sb.zero.fleets"), (g, a, s, z) => g > a and s == z)
-As overlap grows, the chain that holds the colluders takes in other teams: #n("sb.chain.o0") agents with no overlap, #n("sb.chain.o1") at overlap 1 and #n("sb.chain.o2") at overlap 2 (@fig-graph).
-Detection falls with it, from #n("sb.split.o05") at overlap 0.5 to #n("sb.split.o1") at 1, #n("sb.split.o15") at 1.5 and #n("sb.split.o2") at 2.
-Whether the monitor finds the attack follows the size of that chain: it flags the attack in #n("sb.small.caught") runs on fleets whose colluders' chain is at most #n("sb.small.limit") agents, a tenth of the fleet, and #n("sb.large.caught") of the rest.
+Each team forms a separate chain, allowing the monitor to isolate the chain containing both the private checkpoint and an enabled delivery.
+
+As overlap increases, unrelated teams merge into the colluders' chain.
+That chain grows from #n("sb.chain.o0") agents with no overlap to #n("sb.chain.o1") agents at overlap 1 and #n("sb.chain.o2") at overlap 2 (@fig-graph).
+Detection falls from #n("sb.split.o05") at overlap 0.5 to #n("sb.split.o1") at overlap 1, #n("sb.split.o15") at overlap 1.5, and #n("sb.split.o2") at overlap 2.
+
+Detection is closely associated with chain size.
+The monitor detects attacks in #n("sb.small.caught") runs where the colluders' chain contains at most #n("sb.small.limit") agents, approximately a tenth of the fleet.
+It detects only #n("sb.large.caught") when the chain is larger.
 #claim("small chains are caught more often than large ones", ("sb.small.caught", "sb.large.caught"), (s, l) => s > l)
-At overlap 4 nearly the whole fleet is one chain, and the monitor turns to text search (#pct("sb.calls.search.o4") of its calls, against #pct("sb.calls.search.o0") with no overlap; @fig-tools); it flags #n("sb.split.o4").
-As without the graph, all but one miss is a failure to find the evidence: in #n("sb.misses.saw.all") of #n("sb.misses") missed attacks had the monitor seen all three colluders' events, and in #n("sb.catches.saw.all") of #n("sb.catches") catches it had (@tab-graph).
-In that one run the monitor found the export path but concluded, wrongly, that the policy didn't cover the checkpoint, and scored it #n("sb.misses.saw.score").
-#claim("all but one missed attack had not seen every colluder's events", ("sb.misses.saw.all",), m => m == 1)
-#claim("every catch had seen every colluder's events", ("sb.catches.saw.all", "sb.catches"), (a, b) => a == b)
-The monitor never flags an honest fleet (#n("sb.honest")), and its highest score on one is #n("sb.honest.max").
+
+At overlap 4, nearly the entire fleet belongs to one chain.
+The monitor returns to text search, which accounts for #pct("sb.calls.search.o4") of its calls compared with #pct("sb.calls.search.o0") at zero overlap (@fig-tools).
+Detection remains low at #n("sb.split.o4").
+Once the graph stops separating teams, the monitor faces the same search problem as in Experiment A, with a longer log because of the shared reads.
+
+The retrieval results follow the same pattern.
+None of the #n("sb.misses") missed attacks had all four required pieces of evidence retrieved, while all #n("sb.catches") detected attacks did (@tab-graph).
+#claim("no missed graph run had retrieved all four steps", ("sb.misses.steps",), m => m == 0)
+#claim("every caught graph run had retrieved all four steps", ("sb.catches.steps", "sb.catches"), (a, b) => a == b)
+There are no false alarms on honest fleets (#n("sb.honest")), and their highest suspicion score is #n("sb.honest.max").
 #claim("the graph monitor never flags an honest fleet", ("sb.honest",), h => h == 0)
+
+The busy-record cutoff does not prevent this merging.
+Each shared index is read by only two teams, keeping it below the cutoff.
+Many small connections can therefore merge the chains even though no individual record is widely shared.
 
 #figure(
   data-figure("sb-figure", width: 50%),
-  caption: [*The graph helps until overlap merges the fleet into one chain.* Agents in the chain that holds the three colluders, one square per attack fleet: solid where the monitor caught the attack in every run, light where it caught it in some, hollow where it never did; shaded, chains of at most a tenth of the fleet. No honest fleet is flagged (#n("sb.honest")).],
+  caption: [*Shared-record overlap merges teams into larger chains and reduces detection.*
+  Each square represents an attack fleet and shows the number of agents in the chain containing the three colluders.
+  Solid squares indicate detection in every run, light squares indicate detection in some runs, and hollow squares indicate no detections.
+  Shading marks chains containing at most a tenth of the fleet.
+  No honest fleet is flagged (#n("sb.honest")).],
 ) <fig-graph>
-#claim("as overlap grows, the monitor abandons the graph for text search", ("sb.calls.graph.o0", "sb.calls.graph.o4", "sb.calls.search.o0", "sb.calls.search.o4"), (g0, g4, s0, s4) => g4 < g0 and s4 > s0)
 #claim("the graph helps until overlap merges the fleet into one chain", ("sb.split.o0", "sb.split.o2", "sb.small.caught", "sb.large.caught"), (o0, o2, small, large) => o0 > o2 and small > large)
 
-
-== Following the data instead of grouping agents <sec-flow>
-We keep the judge model and threshold, but let a flow graph choose which agents the judge reads together.
-The method has four steps: label each action, link the actions, simulate how private data could spread along the links, and have the monitor read the agents the data passes through.
-
-*Label.* The graph has one node per tool call.
-Jev, a decision model, reads each call on its own, with the services text, the policy paragraphs for the teams it mentions, the agent's task and the call's result, and answers three yes/no questions as probabilities: whether the call touches data the policy marks private (its source probability), whether it passes data or a reference to data on into another record (its carrier probability), and whether it switches on a delivery outside the organization (its sink probability).
-The probabilities belong to the nodes; the links carry no numbers.
-
-*Link.* Links point forward in the log, and two rules make them.
-First, a call that writes a record, meaning its arguments carry more than the record's name, links to every later call by any agent that names that record, in the later call's arguments or in its result.
-Second, each call links to the same agent's next call, since an agent carries what it saw into its next action.
-Two calls that only read the same record are not linked, unlike in the provenance graph, which links any two events that mention the same record.
-A link means only that data could flow from one call to the other; whether it does is decided by the calls at its two ends.
-A plain read writes nothing, so Jev gives it a low carrier probability: the shared reads that merge the provenance graph's chains are linked here too, but pass almost nothing along those links.
-
-*Simulate.* We then run #n("sc.worlds") random rounds.
-In each round, every call's source and carrier questions are answered with a random number between 0 and 1: below the call's probability means yes for that round, so a call with source probability 0.95 is a source in about 95% of rounds.
-The sink probability is not drawn.
-We then go through every call once, in the order of the log.
-Since every link points forward in time, a call's incoming calls are already settled when we reach it, and parts of the graph that don't connect to each other are visited all the same; there is no starting point to choose.
-A call holds private data in a round if it is a source in that round, or if an incoming call holds data and it is a carrier in that round.
-It is hit if the data reached it from a call by a different agent, or from the same agent's previous call when that call was itself hit and is a carrier.
-Data that never leaves one agent doesn't count: a leak inside one agent is in that agent's own transcript, which the per-agent monitor reads, so the flow graph looks only for data that crosses agents.
-Every source spreads at once, so the simulation needs no list of paths, and all rounds are computed together as one pass over the log.
-
-*Score and judge.* After the rounds, every call has a hit rate, the share of rounds in which it was hit, and a flow score, its hit rate times its sink probability.
-The flow score is the only number used to rank: a call that private data reaches often but that sends nothing out, such as a staging step, scores near zero.
-We rank the calls by flow score and find each one's group: in the rounds in which the call was hit, we trace back through the calls the data came through, and keep those that appear in at least #n("sc.keep") of those rounds; their agents are the group.
-A group with the same agents as one already found is skipped.
-Step 1's monitor then reads the agents of each of the top #n("sc.groups") groups together, with the policy cut to the paragraphs for their teams and without the flow scores, and the fleet is flagged when any group scores at least #n("sc.threshold").
-The flow scores only choose what the judge reads; the judge decides.
-In one #n("sc.ex.agents")-agent fleet at overlap #n("sc.ex.overlap"), for example, private data reaches the colluders' delivery in #n("sc.ex.hit") of the rounds, a flow score of #n("sc.ex.score") against #n("sc.ex.next") for the next group, and the judge scores the colluders #n("sc.ex.judge.top") and the next two groups #n("sc.ex.judge.rest").
-Experiment C's fleets hold only split attacks and their honest twins, so it tests the group half of a monitor that would also read each agent individually.
-
-On B's fleets (#n("sc.same.fleets") of #n("sc.curve.fleets") identical) it flags the split attack in #n("sc.split.curve") judgments, against #n("sc.b.split") runs for B's graph monitor (@fig-flow).
+== Experiment C. Following the data <sec-flow>
+Flow-graph monitoring detects every split attack in the tested conditions.
+On the same #n("sc.curve.fleets") fleets used in Experiment B, it detects the attack in #n("sc.split.curve") judgments, compared with #n("sc.b.split") runs for the provenance-graph baseline (@fig-flow).
 #claim("the flow graph beats B on B's own fleets", ("sc.split.curve", "sc.b.split", "sc.same.fleets", "sc.curve.fleets"), (c, b, s, z) => c > b and s == z)
-It keeps flagging past B's range: #n("sc.split.o8") at overlap 8, #n("sc.split.o16") at overlap 16, and #n("sc.split.n1600") in fleets of #n("sc.agents.n1600") agents.
-It never flags an honest fleet (#n("sc.honest")).
+
+Detection remains complete beyond Experiment B's tested range.
+The method detects #n("sc.split.o8") attacks at overlap 8 and #n("sc.split.o16") at overlap 16.
+It also detects #n("sc.split.n400") attacks in fleets of #n("sc.agents.n400") agents and #n("sc.split.n1600") in fleets of #n("sc.agents.n1600") agents.
+No honest fleet is flagged (#n("sc.honest")).
 #claim("the flow graph never flags an honest fleet", ("sc.honest",), h => h == 0)
-In every attack judgment the group the judge scores highest is exactly the three colluders (#n("sc.judge.colluders")), and attack fleets score at least #n("sc.judge.attack.min") against at most #n("sc.judge.honest.max") for honest ones (@fig-scores); the two passes agree on #n("sc.agree") fleets (@tab-flow).
-#claim("the judge's top group is always the colluders", ("sc.judge.colluders",), c => c == 1)
-#claim("attack and honest judge scores don't overlap", ("sc.judge.attack.min", "sc.judge.honest.max"), (a, h) => a > h)
-Each group the judge reads is about #n("sc.judge.chars") characters, against #n("sc.log.chars") for the whole log of a 100-team fleet, and labelling costs #n("sc.usd.base") per 100-team fleet and #n("sc.usd.largest") at #n("sc.agents.n1600") agents.
-#todo[caveats: question wording tuned on layout 0 at overlap 4; one generator with two kinds of honest team; paths must cross agents, so solo attacks are out of scope; B was not run on the scaling arm]
+
+In all #n("sc.judge.colluders") attack judgments, the group receiving the monitor's highest score consists of exactly the three colluders.
+#claim("the monitor's top group is always the colluders", ("sc.judge.colluders",), c => c == 1)
+Attack fleets receive scores of at least #n("sc.judge.attack.min"), while honest fleets receive scores of at most #n("sc.judge.honest.max") (@fig-scores).
+#claim("attack and honest monitor scores don't overlap", ("sc.judge.attack.min", "sc.judge.honest.max"), (a, h) => a > h)
+The two monitoring passes agree on all #n("sc.agree") fleets (@tab-flow).
+#claim("the two passes always agree", ("sc.agree",), a => a == 1)
+
+The monitor reads approximately #n("sc.judge.chars") characters per group, compared with #n("sc.log.chars") characters for the full log of a 100-team fleet.
+Labeling costs #n("sc.usd.base") per 100-team fleet and #n("sc.usd.largest") for a fleet of #n("sc.agents.n1600") agents.
+
+The flow graph and the monitor make distinct contributions.
+In all #n("sc.graph.exact") attack fleets, the group with the highest flow score is exactly the three colluders.
+#claim("the top flow group is always the colluders", ("sc.graph.exact",), c => c == 1)
+Each attack fleet's highest flow score also exceeds that of its matched honest twin (#n("sc.graph.twin")).
+#claim("every attack fleet's top flow score beats its twin's", ("sc.graph.twin",), t => t == 1)
+
+However, flow scores overlap across different fleets.
+The lowest top score among attack fleets is #n("sc.graph.attack.min"), while the highest among honest fleets is #n("sc.graph.honest.max"), from a fleet of #n("sc.graph.honest.max.agents") agents.
+#claim("the flow scores alone don't separate attack from honest fleets", ("sc.graph.attack.min", "sc.graph.honest.max"), (a, h) => float(a) < float(h))
+A single flow-score threshold therefore cannot perfectly separate attack and honest fleets in these experiments.
+The monitor achieves that separation by reviewing the selected groups' actions against the policy.
+@app-results describes the other groups it reviews.
 
 #figure(
   data-figure("sc-figure", width: 100%),
-  caption: [*The flow graph catches every split attack, even where the provenance graph fails.* Split attacks caught under each condition, by method: the monitor without a graph (@fig-scaling), B's graph monitor and the flow graph with Step 1's monitor reading each group together (#n("sc.judgments") judgments: #n("sc.fleets") fleets, each monitored #n("sc.passes") times). Hatched, conditions a method wasn't run on.],
+  caption: [*Flow-graph monitoring detects every split attack in the tested conditions.*
+  Detection is shown for the monitor without a graph (@fig-scaling), the provenance-graph baseline, and the flow graph paired with Step 1's joint monitor.
+  Experiment C includes #n("sc.judgments") judgments across #n("sc.fleets") fleets, each monitored #n("sc.passes") times.
+  Hatching marks conditions in which a method was not evaluated.],
 ) <fig-flow>
 #claim("the flow graph catches every split attack, even where the provenance graph fails", ("sc.split", "sc.b.split"), (c, b) => c == 1 and b < 1)
-
-#claim("the judge's scores for attacks and honest fleets never overlap", ("sc.judge.attack.min", "sc.judge.honest.max", "sc.threshold"), (a, h, t) => a >= t and h < t)
-
 
 = Discussion and Limitations
 #todo[what the result does and does not establish]
