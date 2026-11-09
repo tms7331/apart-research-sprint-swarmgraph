@@ -4,7 +4,7 @@
 #import "lib.typ": *
 
 #show: apart.with(
-  title: [Follow the Data:\ Catching Split Attacks in Agent Swarms],
+  title: [Follow the Data:\ Catching Split Attacks in Agent Swarms with Decision Model Graphs],
   authors: (
     (name: [Thomas Redfern], affiliation: [Unaffiliated]),
   ),
@@ -14,8 +14,40 @@
 )
 
 = Introduction
-#todo[the question, why it matters, and the contributions]
-Splitting a hidden objective across agents can hide it from a monitor that reads one agent at a time @kitaoka2026.
+AI agents increasingly work in teams and larger fleets, with each agent assigned a narrow task, its own permissions, and its own records.
+In the AI control setting, these agents are copies of a capable model that we do not fully trust, and a trusted monitor reviews their actions.
+Monitoring often treats each agent's transcript separately, but this can miss an attack whose steps are spread across several agents @kitaoka2026.
+
+Kitaoka et al. demonstrated this problem in MiniLab: a per-agent monitor flagged 86.8% of side tasks performed by a single agent, but only 6.7% of the same tasks split across three agents.
+Reviewing the colluding agents together raised detection to 31--41% @kitaoka2026.
+However, that joint monitor was given the identities of the colluders.
+In a fleet of hundreds or thousands of agents, a defender must first find the handful involved in an attack among many others doing similar work.
+Kitaoka et al. leave this search problem to future work @kitaoka2026.
+
+This paper asks how a monitor can identify which agents to review together.
+We study a controlled scenario in which three agents jointly exfiltrate private data, and place this attacking team among honest teams that perform the same types of actions.
+Each attack fleet is paired with an otherwise identical honest fleet in which the attacking team is replaced by one that sends only shareable data.
+These pairs let us measure both attack detection and false alarms under matching conditions.
+
+We compare three approaches to finding the attacking team.
+The first gives an LLM monitor tools to search and read the raw log within a fixed budget of tool calls.
+The second gives the same monitor a FragBench-style provenance graph, which connects events through the records they share @mehta2026.
+
+Our approach, the third, uses a flow graph to trace how private data could move across agents and leave the organization.
+A low-cost decision model labels each tool call's role in that flow, and explicit record references link calls together.
+We then simulate how private data could travel through these links and rank the resulting candidate groups.
+The same LLM monitor reviews the selected agents' transcripts together to determine whether their combined actions constitute an attack.
+
+We make three contributions:
+#list(
+  [We reproduce the fragmentation result in a minimal, controlled setting where each colluder's transcript is identical to one that an honest agent could produce (@sec-step1).],
+  [We evaluate how well existing monitoring approaches scale, using two baseline implementations: a tool-using LLM monitor that searches the raw log as fleet size grows (@sec-scaling), and a FragBench-style provenance graph as teams access more shared records (@sec-graph).
+  We identify where each approach breaks down and show that these failures arise from difficulty finding the relevant evidence.],
+  [We introduce a flow graph approach that uses a decision model to label how tool calls handle private data, then traces possible flows across agents to identify groups for joint review (@sec-flow-method).
+  With the same monitor and decision threshold, it detects every split attack without false alarms across the conditions we test.
+  The monitor reviews about #n("sc.judge.chars") characters per group rather than the full log.],
+)
+#claim("the flow graph flags every split attack with no false alarms", ("sc.split", "sc.honest"), (s, h) => s == 1 and h == 0)
 
 = Flow-Graph Monitoring <sec-flow-method>
 #todo[the method: label, link, simulate, score and monitor]
