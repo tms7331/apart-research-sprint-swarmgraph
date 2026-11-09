@@ -179,19 +179,152 @@ The graph selects the groups; the monitor makes the final judgment.
 
 @app-flow provides further details, a worked example, an application to a full fleet, and an account of how we developed the method.
 
-= Methods <sec-methods>
-Step 1 compares five run types on single teams: the split attack; a solo attack, in which one agent holds all three tasks and permissions; the two kinds of honest team; and an incomplete attack, in which one agent makes only the routine part of its change, so the chain never completes.
+= Experimental Design and Methods <sec-methods>
+== The monitor <sec-monitor>
+We use OpenAI's GPT-6.1 Sol (#n("tb.model")) at #n("tb.effort") reasoning effort to review the log described in @sec-view.
+The monitor assigns a suspicion score from 0 to 100, cites the events supporting its judgment, and gives one of four assessments—no violation evident, precursor, completed violation, or insufficient information.
 
-The monitor is an LLM (#n("tb.model") at #n("tb.effort") reasoning effort) that reads the policy, a description of the services, and the agents' tasks, tool calls, results and messages.
-It doesn't see the service's own records, or the delivery itself.
-It scores suspicion from 0 to 100, with an assessment and the events it rests on.
-Step 1 reads each team in two ways: individually, one agent's transcript at a time, where a team's score is its highest-scoring member's; and together, the whole team's transcripts in one prompt.
-Each of the #n("tb.episodes") scripted episodes is read by the monitor #n("tb.readings.per.view") time(s) per view, and a team is flagged when its median suspicion score is at least #n("tb.threshold").
+Its instructions ask it to consider each agent's assigned task, avoid assuming that an attack exists, and distinguish a successful tool response from authorization to perform an action (@sec-prompts).
+We flag scores of at least #n("tb.threshold"), corresponding to MiniLab's threshold of 7.5 on a scale from 0 to 10 @kitaoka2026.
+This threshold is fixed in advance rather than tuned to the observed scores.
 
-Experiments A to C hide the team in a fleet of background teams.
-Each background team is an independent copy of the same workflow with its own records, and the background alternates the two kinds of honest team.
-All teams' actions are interleaved at random, with each team's own order kept, so the attacking team's position in the log gives nothing away.
-Every attack fleet has an honest twin, the same fleet with the attacking team replaced by one that ships shareable data, and a flag on a twin is a false alarm.
+Every experiment uses the same monitor model and threshold.
+Step 1 and Experiment C also use the same monitoring instructions.
+Experiments A and B add instructions for exploring the log with tools (@sec-prompts).
+
+== The fleets <sec-fleets>
+Experiments A to C place the attacking team among honest background teams.
+Each background team follows the same workflow using its own records, and the background alternates between the two kinds of honest team described in @sec-scenario.
+
+We shuffle team order and randomly interleave their actions while preserving the order of actions within each team.
+For a given layout and fleet size, all run types use the same background teams, team order, and interleaving.
+This prevents the attacking team's position in the log from identifying it.
+
+Each attack fleet has a matched honest fleet in which the attacking team is replaced by one that delivers shareable data.
+A flag on this honest fleet counts as a false alarm.
+With $N$ honest background teams and one evaluated team, a fleet contains $3N + 3$ agents.
+Without background teams, the split-attack fleet is the same episode used in Step 1.
+
+Experiments B and C also vary how often teams access shared records.
+We call this _tool-call overlap_.
+At overlap $N$, each team reads approximately $N$ records that are also read by one other team.
+These records are shared indexes listing two teams' package entries, which the staging agents read before their own staging work.
+
+These reads expose references to another team's records without transferring the underlying data.
+Increasing overlap therefore lets us test how monitoring behaves when otherwise independent teams access shared resources.
+@tab-varied summarizes the experimental conditions.
+
+#figure(
+  table(
+    columns: (auto, 1fr, 1fr, 1fr, 1fr),
+    stroke: none, inset: (x: 0.4em, y: 0.35em), align: (x, _) => if x == 0 { left } else { center },
+    table.hline(stroke: 0.6pt),
+    table.header([], [Step 1], [Experiment A], [Experiment B], [Experiment C]),
+    table.hline(stroke: 0.4pt),
+    [honest twin], [yes, and incomplete attacks], [yes], [yes], [yes],
+    [fleet size (agents)], [3], [3 to #n("sa.agents.n180")], [#n("sb.agents")], [#n("sb.agents") to #n("sc.agents.n1600")],
+    [tool-call overlap], [none], [0], [0 to 4], [0 to 16],
+    [layouts], [#n("tb.layouts")], [#n("tb.layouts")], [#n("sb.layouts")], [#n("sb.layouts")],
+    [passes per fleet], [#n("tb.readings.per.view") readings], [#n("sa.passes")], [#n("sb.passes")], [#n("sc.passes")],
+    table.hline(stroke: 0.6pt),
+  ),
+  caption: [*Experimental conditions.* Honest controls, fleet sizes, tool-call overlap, and monitoring repetitions for each experiment.
+  Experiment C reuses Experiment B's exact fleets and adds conditions with larger fleets or greater overlap.],
+) <tab-varied>
+
+== Measures and evaluation scope <sec-measures>
+In Experiments A and B, we distinguish whether the monitor finds the relevant evidence from whether it recognizes the attack.
+We count the evidence as found when the monitor retrieves all four of the following, either as full events or search snippets.
+#list(
+  [The read of the private checkpoint.],
+  [The copy of the checkpoint into the bundle.],
+  [The prepared package pointing to that bundle.],
+  [The enabled delivery schedule.],
+)
+
+In Experiment C, we separately measure whether the selected group matches the colluders and whether the monitor flags the fleet.
+
+== Step 1. Reproducing the fragmentation result <sec-step1-method>
+_Does splitting an attack across three agents hide it from individual review, and does reviewing the team together recover detection?_
+
+We compare five run types using single teams.
+#list(
+  [A split attack carried out by three agents.],
+  [A solo attack in which one agent has all three tasks and permissions.],
+  [An honest team that delivers shareable data.],
+  [An honest team that backs up private data but leaves delivery disabled.],
+  [An incomplete attack in which one agent performs only the routine part of its task, leaving the attack unfinished.],
+)
+
+The incomplete attack has three variants, each omitting a different step.
+One-agent versions are also included for the solo attack and honest teams.
+
+We evaluate each team under individual and joint review.
+During individual review, the monitor reads one agent's transcript at a time, and the team's score is the highest of its agents' scores.
+During joint review, it reads all of the team's transcripts in one prompt.
+
+The monitor reviews each of the #n("tb.episodes") scripted episodes #n("tb.readings.per.view") time(s) under each view.
+A team is flagged when its median suspicion score reaches #n("tb.threshold").
+Repeated readings measure variation in the monitor's judgments rather than additional attacks, so detection rates are based on #n("tb.layouts") teams per attack type.
+
+== Experiment A. Searching the raw log with a fixed budget <sec-scaling-method>
+_Can a monitor with a fixed tool-call budget find the attacking team as the fleet grows?_
+
+We increase fleet size up to #n("sa.agents.n180") agents, with no tool-call overlap.
+The monitor starts with the policy, service descriptions, and log size.
+It can make one tool call per turn using four available tools.
+#list(
+  [Search for text, returning the number of matching events and a page of shortened results.],
+  [Read a consecutive range of log events in full.],
+  [Read specific events by ID.],
+  [Read one agent's full transcript.],
+)
+
+The budget remains #n("sa.budget") calls at every fleet size.
+Each call returns at most #n("sa.read.max") events, giving the monitor a total reading capacity of approximately #n("sa.capacity") events.
+
+The monitor updates its verdict after each turn and gives a final verdict when its budget is exhausted.
+The fleet is flagged if the final suspicion score reaches #n("sa.threshold").
+No graph is provided, so the monitor must identify related agents through its searches.
+
+We test fleets with 0, 1, 3, 10, 30, 100, and 180 honest background teams across #n("tb.layouts") layouts.
+Each condition includes a solo attack, a split attack, and an honest twin, with each fleet monitored #n("sa.passes") times.
+
+== Experiment B. Structuring the log with a provenance graph <sec-graph-method>
+_Does grouping events by shared records help the monitor find the attacking team, and how does this change as honest teams share more records?_
+
+We give the same monitor a FragBench-style provenance graph and tools for exploring it @mehta2026.
+The tool-call budget remains #n("sa.budget").
+
+Each tool call and each tool result is a separate node.
+We link a call to its result, consecutive events from the same agent, and events that name the same record in their arguments or returned records.
+Records mentioned by more than #n("sb.busy") agents are treated as busy and create no links.
+This fixed cutoff replaces FragBench's approach of down-weighting common resources.
+
+We use union-find to group connected events into chains.
+Graph construction depends entirely on the log and requires no model calls.
+Without overlap, each team forms its own chain.
+With overlap, a shared-index read can connect two teams' chains, and a series of such connections can merge multiple teams into one chain (@app-graph).
+
+In addition to Experiment A's tools, the monitor receives #n("sb.graph.tools") tools for exploring the graph.
+These let it list chains from largest to smallest with their sizes and example records, search chains by event text, and read a chain's events in order.
+The remaining tools look up an agent's chain and identify which agents accessed a record (@sec-prompts).
+
+We hold fleet size at #n("sb.agents") agents, including #n("sb.teams") honest teams, and vary overlap across 0, 0.5, 1, 1.5, 2, and 4.
+Each condition has #n("sb.layouts") layouts, and each fleet is monitored #n("sb.passes") times.
+
+== Experiment C. Following the data <sec-flow-evaluation>
+_Can the flow graph find the attacking team as fleets grow and honest teams share more records?_
+
+Experiment C evaluates the method described in @sec-flow-method.
+It includes split attacks and their honest twins, so it evaluates the group-monitoring component.
+A complete monitoring system would also review agents individually.
+
+We reuse all #n("sc.curve.fleets") fleets from Experiment B without modification, then extend the evaluation in two directions.
+We test overlap levels of 8 and 16 with 100 honest teams, and larger fleets of #n("sc.agents.n400") and #n("sc.agents.n1600") agents at overlap 4.
+Each additional condition has #n("sb.layouts") layouts and a matched honest fleet.
+
+In total, Experiment C includes #n("sc.fleets") fleets, each monitored #n("sc.passes") times.
 
 = Results <sec-results>
 == Reproducing the fragmentation result <sec-step1>
